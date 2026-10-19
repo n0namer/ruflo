@@ -64,11 +64,11 @@ known_test_state:
   focused_vitest: "40/40 PASS on 2026-10-19: actual Ruflo enforce-policy receipts, scoped authorization, CLI/MCP, async admission, replay and cancel; no Codex E2E"
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
-  full_missions: "123 PASS, 2 opt-in live tests skipped, exit0 on 2026-10-19; includes native-ready-cycle 4/4 and physical-auto-refill 1/1. Separately one real gpt-6-luna Mission terminal PASS, two-real-task stress RED."
-  real_codex_e2e: "ONE REAL MISSION COMPLETED: msn_52ac76735bbfadad21da7b6b, gpt-6-luna PID 281872 thread 01a155b3-3e7a-7691-93ce-5301127c18c1, exit0, independent process checksum QA, Native completed rev6, 1/1 live test PASS; not production reviewer. Two-task real run RED: second invocation PID302668 exit1, no terminal."
+  full_missions: "123 PASS, 3 opt-in live tests skipped, exit0 on 2026-10-19; includes ready-cycle 4/4, physical-auto-refill 1/1 and Windows crash/replay. Separately 2 real gpt-6-luna Missions terminal PASS; same-Mission 2 AI tasks still RED."
+  real_codex_e2e: "TWO SEPARATE real gpt-6-luna Missions completed: msn_52ac76735bbfadad21da7b6b (PID281872, checksum QA), msn_aa04a4f137331fed6ba817ab (PID302048, JS sumFinite tested by independent QA PID293804, 10 checks), Native completed rev6. Both live tests 1/1 PASS. Same-Mission two-real-task stress RED second exit1."
   native_terminal_refill: "Physical-process fixture: 2 Node workers (stock Codex JSONL), 2 separate QA checker subprocesses, stock Mission terminal/readback/refill PASS; not a real Codex LLM run"
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
-  native_mvp_acceptance: "PARTIAL REAL E2E: 1 real gpt-6-luna Codex Mission completed rev6 with separate deterministic QA 1/1 PASS; 2-real-cycle stress RED second Codex exit1; independent production QA, resident daemon/refill, and CrewSync SERVER_DONE still unproven"
+  native_mvp_acceptance: "PARTIAL REAL E2E: 2 distinct gpt-6-luna Missions completed (text artifact + executable sumFinite JS). Second used bounded NativeReadyCycle and separate functional QA (10 assertions), PASS. Two real tasks in SAME Mission and production independent QA/daemon still NOT ACCEPTED; CrewSync SERVER_DONE=0."
   latest_server_done_this_work: 0
 next_critical_path: "m2-mvp-01-trusted-admission -> m2-mvp-02-frontier-once-journal -> m2-mvp-03-real-codex"
 out_of_scope: "GO Core V2, new planner/runner/store, UI, model routing, mass parallelism, deploy, Telegram"

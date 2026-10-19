@@ -97,8 +97,10 @@ describe('native stock Codex mission executor', () => {
     const result = await new CodexExecutor({
       command: process.execPath,
       commandPrefixArgs: ['-e', 'setTimeout(() => {}, 10_000)'],
-      timeoutMs: 40,
-      killGraceMs: 20,
+      timeoutMs: 100,
+      // Windows process close events can be delayed when Vitest saturates CPU.
+      // Keep a bounded but realistic grace period before declaring unknown termination.
+      killGraceMs: 500,
     }).run(request());
 
     expect(result.outcome).toBe('timed-out');
