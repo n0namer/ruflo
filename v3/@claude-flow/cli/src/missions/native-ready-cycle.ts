@@ -136,7 +136,7 @@ export async function runNativeReadyCycle(options: NativeReadyCycleOptions): Pro
   for (const spec of view.planBody!.tasks) {
     if (view.tasks[spec.id]?.status !== 'recorded-done') continue;
     const missing = spec.acceptanceEvidence.some(criterionId =>
-      !view.evidence.some(e => e.taskId === spec.id &&
+      !view!.evidence.some(e => e.taskId === spec.id &&
         e.criterionId === criterionId && e.verified &&
         e.planRevision === view!.record.plan.revision &&
         e.criteriaDigest === view!.record.acceptance.criteriaDigest));
@@ -212,7 +212,7 @@ export async function runNativeReadyCycle(options: NativeReadyCycleOptions): Pro
 
   // Choose any *current-plan* digest covering ALL mandatory criteria. Old
   // evidence or a partially-covered digest must never shadow a valid set.
-  const mandatory = view.planBody.acceptance.filter(c => c.mandatory);
+  const mandatory = view.planBody!.acceptance.filter(c => c.mandatory);
   const currentEvidence = view.evidence.filter(e => e.verified &&
     e.planRevision === view.record.plan.revision &&
     e.criteriaDigest === view.record.acceptance.criteriaDigest &&

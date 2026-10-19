@@ -24,10 +24,10 @@ development_status:
   m2-mvp-00-reconcile: in-progress
   m2-mvp-01-trusted-admission: in-progress
   m2-mvp-02-frontier-once-journal: in-progress
-  m2-mvp-03-real-codex: ready-for-dev
+  m2-mvp-03-real-codex: in-progress
   m2-mvp-04-independent-qa-terminal: blocked
-  m2-mvp-05-two-refills: blocked
-  m2-mvp-06-restart-replay: ready-for-dev
+  m2-mvp-05-two-refills: in-progress
+  m2-mvp-06-restart-replay: in-progress
 
 minimal_mvp_work:
   m2-mvp-00-reconcile:
@@ -64,7 +64,7 @@ known_test_state:
   focused_vitest: "40/40 PASS on 2026-10-19: actual Ruflo enforce-policy receipts, scoped authorization, CLI/MCP, async admission, replay and cancel; no Codex E2E"
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
-  full_missions: "127 PASS, 4 opt-in live tests skipped, exit0 on 2026-10-19. Includes journal-authenticated no-redispatch recovery, missing QA evidence recovery, verifying->terminal restart, complete current-plan digest, SIGKILL writer recovery; no production independent QA."
+  full_missions: "127 PASS, 4 opt-in live tests skipped, exit0 in serial Windows run on 2026-10-19. One parallel SIGKILL test had an intermittent lock/readback fail but isolated and serial reruns GREEN. QA recovery, verifying->terminal, no redispatch, current-plan digest, physical mock refill included; not production QA."
   real_codex_e2e: "TWO SEPARATE real gpt-6-luna Missions completed: msn_52ac76735bbfadad21da7b6b (PID281872, checksum QA), msn_aa04a4f137331fed6ba817ab (PID302048, JS sumFinite tested by independent QA PID293804, 10 checks), Native completed rev6. Both live tests 1/1 PASS. Same-Mission two-real-task stress RED second exit1."
   native_terminal_refill: "Native once/refill mock physical two-task terminal PASS; 3 fail-closed crash fences recovered by original journal source, no duplicate dispatch. Same-Mission two real AI worker refill RED second provider 429, not an accepted terminal."
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
