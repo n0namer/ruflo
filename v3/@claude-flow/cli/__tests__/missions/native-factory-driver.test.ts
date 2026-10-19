@@ -88,6 +88,9 @@ describe('M2 factory driver binds existing MissionStore and READY cycle',()=>{
        nativeProviderAdmission:()=>({allowed:true,state:{mode:'CLOSED'}}),
        providerCapacityAcquire:async()=>{acquired++;return {slots:['capacity:provider:fixture:0']}},
        providerCapacityRelease:async()=>{released++;return true},
+       // Isolated fixture verifies its own unique owned slot; production
+       // uses real CrewSync owner/session/TTL readback by default.
+       nativeVerifyProviderSlot:async slot=>slot.slots?.[0]==='capacity:provider:fixture:0',
      };
      const result=await service.runCanonicalProdServiceCycle(args);
      expect(result).toMatchObject({
