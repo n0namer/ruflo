@@ -103,3 +103,9 @@
 - Copied existing test-only `tsconfig.kill-writer.json` into this new sparse worktree (same SHA as source) so subprocess tests can load the native security source; did not modify shared source worktree.
 - Fresh command `node ../../../node_modules/vitest/vitest.mjs run __tests__/missions/ --testTimeout 60000` from CLI directory: **19 files, 118 tests PASS, exit 0** after raising the *test helper* Git timeout to 15 seconds and making temp cleanup retry on Windows `EBUSY`. Previous runs with missing tsconfig and Git fixture contention were explicitly RED.
 - Genuine Codex AI-provider launch remains a separate P0; earlier direct Codex 0.160.1 emitted physical `thread.started` but provider returned 502 and did not produce `turn.completed`. No SERVER_DONE, production QA_ACCEPT or real LLM terminal asserted.
+
+## Bounded real Codex 0.160.1 provider probe — 2026-10-19
+- Ran from isolated `C:/Users/NIKITA/.mnnz/ruflo-native-mission-probe-20261019` with `codex exec --json --sandbox read-only --skip-git-repo-check`; no tools/writes requested.
+- Real Node/Codex child PID **288636** emitted `thread.started`, thread **01a15594-983c-7a91-806e-c1d77595d475**. No `turn.completed` or accepted task output appeared within the hard 25-second bound.
+- Watchdog terminated this *specific* probe child, verified `Get-Process 288636` absent. Result: timeout, exit code 1. Unlike the earlier provider canary, this run had no explicit 502 diagnostic; do not assert a current 502 as its verified cause.
+- Physical M2 test subprocesses passed 118/118 Mission tests, but are **not actual Codex model calls**. Real CodeX/independent provider QA/Native terminal therefore remain NOT_ACCEPTED. No new CrewSync SERVER_DONE.

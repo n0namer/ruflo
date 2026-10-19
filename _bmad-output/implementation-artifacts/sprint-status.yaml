@@ -65,7 +65,7 @@ known_test_state:
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
   full_missions: "118/118 PASS in 19 files 2026-10-19 including two physical test executors, separate QA check processes and crash/replay; LIVE LLM CODEX STILL NOT PROVEN"
-  real_codex_e2e: "BLOCKED: Codex 0.160.1 spawned PID 279956 and thread.started; provider 502 unreachable; no turn.completed, independent QA or terminal"
+  real_codex_e2e: "BLOCKED: direct Codex 0.160.1 read-only probe at 22:12 MSK started PID 288636/thread 01a15594-983c-7a91-806e-c1d77595d475; 25s timeout, no turn.completed, no explicit 502 in this probe; prior probe saw 502. No live QA/terminal."
   native_terminal_refill: "Physical-process fixture: 2 Node workers (stock Codex JSONL), 2 separate QA checker subprocesses, stock Mission terminal/readback/refill PASS; not a real Codex LLM run"
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
   native_mvp_acceptance: "NOT_ACCEPTED; physical fixture passed, but real Codex LLM completion, independently authenticated QA and actual resident executor/2 autonomous real cycles remain unproven"
