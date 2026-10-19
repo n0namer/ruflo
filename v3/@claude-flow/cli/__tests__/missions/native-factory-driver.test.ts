@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MissionService } from '../../src/missions/service.js';
 import { createNativeM2FactoryDriver } from '../../src/missions/native-factory-driver.js';
@@ -66,6 +67,41 @@ describe('M2 factory driver binds existing MissionStore and READY cycle',()=>{
       status:'blocked',reason:'factory-admission-revoked',state:'running',performed:[],
    });
    expect(f.launched).toBe(0);
+ });
+ it.runIf(Boolean(process.env.RUFLO_M2_FACTORY_CHECKOUT))(
+ 'real Factory service-cycle calls actual Native MissionStore driver in same process',async()=>{
+   const f=await prepared();
+   const folder=resolve(process.env.RUFLO_M2_FACTORY_CHECKOUT!);
+   const url=pathToFileURL(join(folder,'lib','factory-autopilot-service.mjs')).href;
+   const service=await import(/* @vite-ignore */ url);
+   const factoryRoot=mkdtempSync(join(tmpdir(),'ruflo-m2-factory-crossrepo-'));
+   mkdirSync(join(factoryRoot,'runtime','provider-guardian'),{recursive:true});
+   writeFileSync(join(factoryRoot,'runtime','provider-guardian','circuit.json'),
+     JSON.stringify({mode:'CLOSED',last_success_at:new Date().toISOString()}));
+   let acquired=0,released=0;
+   try {
+     const args={
+       project:'ruflo',profile:{root},projectPath:root,factoryRoot,
+       nativeMissionId:f.missionId,nativeMissionRuntime:f.driver,
+       nativeMaxTasks:3,
+       nativeHumanControl:()=>({allowed:true,state:{mode:'ACTIVE'}}),
+       nativeProviderAdmission:()=>({allowed:true,state:{mode:'CLOSED'}}),
+       providerCapacityAcquire:async()=>{acquired++;return {slots:['capacity:provider:fixture:0']}},
+       providerCapacityRelease:async()=>{released++;return true},
+     };
+     const result=await service.runCanonicalProdServiceCycle(args);
+     expect(result).toMatchObject({
+       status:'NATIVE_MISSION_TERMINAL_READBACK',accepted:true,serverDone:false,
+       performed:['produce','evaluate','verify'],nativeState:'completed',nativeRevision:6,
+     });
+     expect(f.launched).toBe(3);expect(acquired).toBe(1);expect(released).toBe(1);
+     const repeat=await service.runCanonicalProdServiceCycle(args);
+     expect(repeat).toMatchObject({status:'BLOCKED_NATIVE_M2',
+       reason:'native-mission-scope-or-state-invalid'});
+     expect(f.launched).toBe(3);
+   } finally {
+     rmSync(factoryRoot,{recursive:true,force:true,maxRetries:5,retryDelay:70});
+   }
  });
  it('existing Factory-gated Native driver executes three dependent Mission tasks to terminal',async()=>{
    const f=await prepared();
