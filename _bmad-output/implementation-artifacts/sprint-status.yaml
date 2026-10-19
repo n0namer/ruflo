@@ -64,7 +64,7 @@ known_test_state:
   focused_vitest: "40/40 PASS on 2026-10-19: actual Ruflo enforce-policy receipts, scoped authorization, CLI/MCP, async admission, replay and cancel; no Codex E2E"
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
-  full_missions: "116 PASS, 1 FAIL on 2026-10-19: subprocess store-replay package @claude-flow/security missing from partial test environment; NOT GREEN"
+  full_missions: "117/117 PASS in 18 files 2026-10-19 (CLI-local Vitest); Windows SIGKILL subprocess source resolution fixed via test-only hooks; physical Codex and QA E2E still NOT PROVEN"
   real_codex_e2e: "BLOCKED: Codex 0.160.1 spawned PID 279956 and thread.started; provider 502 unreachable; no turn.completed, independent QA or terminal"
   native_terminal_refill: "Native internal event terminal fixture 3/3 PASS and READY/refill fixture 1/1 PASS; no accepted physical E2E or 2 real cycles"
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
