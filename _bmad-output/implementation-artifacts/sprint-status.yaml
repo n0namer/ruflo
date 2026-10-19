@@ -1,0 +1,70 @@
+# Ruflo Native M2 only. Do not confuse with the dirty Ruflo Factory sprint-status.
+# BMad planning mirror of existing CrewSync tasks; CrewSync is transactional authority.
+# Each status is a delivery estimate, NOT an authoritative CrewSync task state.
+generated: "2026-10-19"
+project: "Ruflo Native Mission ADR-406 M2"
+project_key: "RUFLO_NATIVE_M2"
+tracking_system: "crew-sync"
+authority: "stock Ruflo MissionStore for Native lifecycle; CrewSync for development task status"
+upstream_base: "6cdad1ae0e4123a307a257b06d4a89b3962f1a53"
+candidate_commits: ["2c63898ef", "38a50e865"]
+branch: "native-m2-upstream-20261019"
+mission_e2e_accepted: false
+go_core_v2_enabled: false
+
+crew_sync_snapshot:
+  prefix: "ruflo-upstream-dev:m2-r7c/r8/r9"
+  scope: "non-superseded parent goals, not stage subkeys"
+  open: 21
+  done: 3
+  new_server_done_this_reconcile: 0
+  warning: "Existing three DONE are bounded QA results, not native M2 E2E."
+
+development_status:
+  m2-mvp-00-reconcile: in-progress
+  m2-mvp-01-trusted-admission: in-progress
+  m2-mvp-02-frontier-once-journal: in-progress
+  m2-mvp-03-real-codex: ready-for-dev
+  m2-mvp-04-independent-qa-terminal: blocked
+  m2-mvp-05-two-refills: blocked
+  m2-mvp-06-restart-replay: ready-for-dev
+
+minimal_mvp_work:
+  m2-mvp-00-reconcile:
+    priority: P0
+    keys: ["ruflo-upstream-dev:m2-r9:native-mission-preintegration:goal"]
+    dod: "source, attempts, owners, accepted SHA and official upstream compared; independent evidence/readback"
+  m2-mvp-01-trusted-admission:
+    priority: P0
+    keys: ["ruflo-upstream-dev:m2-r7c:admission-runtime:goal", "ruflo-upstream-dev:m2-r7c:budget:goal", "ruflo-upstream-dev:m2-r7c:cli-mcp:goal"]
+    dod: "stock CLI/MCP authorized admit/resume; policy, permission, budget and workspace checked; replay and denials fail closed"
+  m2-mvp-02-frontier-once-journal:
+    priority: P0
+    keys: ["ruflo-upstream-dev:m2-r7c:frontier:goal", "ruflo-upstream-dev:m2-r7c:once-dispatch:goal", "ruflo-upstream-dev:m2-r9:crossprocess-journal:goal"]
+    dod: "stock DAG READY/lease/fence -> journal-before-effect; concurrent same invocation runs at most once; ambiguity blocks"
+  m2-mvp-03-real-codex:
+    priority: P0
+    keys: ["ruflo-upstream-dev:m2-r9:codex-binding-repair:goal", "ruflo-upstream-dev:m2-r7c:integration:goal"]
+    dod: "real stock Ruflo-to-Codex execution in isolated Mission, physical PID/thread, exact source and test receipts"
+  m2-mvp-04-independent-qa-terminal:
+    priority: P0
+    keys: ["ruflo-upstream-dev:m2-r7c:reducer:goal", "ruflo-upstream-dev:m2-r9:terminal-test-boot-repair:goal"]
+    dod: "fresh tests, bounded repair, independent reviewer on unchanged SHA, valid Native terminal and exact readback"
+  m2-mvp-05-two-refills:
+    priority: P0
+    keys: ["ruflo-upstream-dev:m2-r7c:refill:goal"]
+    dod: "two sequential READY -> real Codex -> QA -> Native terminal transitions, next READY starts automatically"
+  m2-mvp-06-restart-replay:
+    priority: P0
+    keys: ["ruflo-upstream-dev:m2-r7c:recovery:goal"]
+    dod: "crash/restart/replay preserve epoch, event order, terminal absorbing; zero repeated terminal effects"
+
+qa_gate: "reuse existing non-superseded r8/r9 independent QA task keys; source SHA change invalidates prior QA"
+known_test_state:
+  focused_vitest: "22/22 PASS on 2026-10-19 prior execution"
+  once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
+  full_missions: "80 PASS, 1 FAIL, 1 suite load failure from partial workspace dependencies; NOT GREEN"
+  real_codex_e2e: "NOT_PROVEN"
+  native_terminal_refill: "NOT_PROVEN"
+next_critical_path: "m2-mvp-01-trusted-admission -> m2-mvp-02-frontier-once-journal -> m2-mvp-03-real-codex"
+out_of_scope: "GO Core V2, new planner/runner/store, UI, model routing, mass parallelism, deploy, Telegram"
