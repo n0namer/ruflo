@@ -8,7 +8,7 @@
  * responsible for authenticating live policy, budget, worktree and permission
  * receipts, and for dispatching through the existing M2 journal/lease/Codex path.
  */
-import { MissionService, type Channel } from './service.js';
+import { MissionService, type Channel, type NativeRuntimeEventType, type NativeEventProof } from './service.js';
 import type { MissionView } from './transitions.js';
 import type { ExecutionAdmissionRequest } from './execution-admission.js';
 
@@ -18,7 +18,11 @@ export interface NativeMissionHost {
   /** Source-bound evidence, produced only by the trusted process owner. */
   readonly executionAdmission: (
     view: MissionView, action: 'admit' | 'resume',
-  ) => ExecutionAdmissionRequest | null;
+  ) => ExecutionAdmissionRequest | null | Promise<ExecutionAdmissionRequest | null>;
+  /** Authenticated Native event authority, not exposed to CLI or MCP transport. */
+  readonly authorizeRuntimeEvent?: (
+    view: MissionView, type: NativeRuntimeEventType, payload: Readonly<Record<string, unknown>>,
+  ) => NativeEventProof | null | Promise<NativeEventProof | null>;
 }
 
 let nativeHost: NativeMissionHost | null = null;
@@ -48,6 +52,30 @@ export function nativeMissionService(projectRoot: string, channel: Channel): Mis
         const evidence = await host.executionAdmission(view, action);
         if (nativeHost !== host || !host.durableExecutorReady()) return null;
         return evidence;
+      },
+    } : {}),
+  });
+}
+
+
+/**
+ * Private Native executor ingress. The stock CLI/MCP adapters deliberately never
+ * expose recordNativeEvent; only a bootstrapped runtime with its own verifier
+ * can write observations or independent-QA terminal evidence.
+ */
+export function nativeMissionRuntimeService(projectRoot: string): MissionService {
+  const host = nativeHost;
+  return new MissionService({
+    projectRoot,
+    channel: 'internal',
+    ...(host?.authorizeRuntimeEvent ? {
+      authorizeRuntimeEvent: async (
+        view: MissionView, type: NativeRuntimeEventType, payload: Readonly<Record<string, unknown>>,
+      ): Promise<NativeEventProof | null> => {
+        if (nativeHost !== host || !host.durableExecutorReady()) return null;
+        const proof = await host.authorizeRuntimeEvent!(view, type, payload);
+        if (nativeHost !== host || !host.durableExecutorReady()) return null;
+        return proof;
       },
     } : {}),
   });

@@ -29,14 +29,15 @@ import {
   type ControlEventType,
   type MissionEvent,
   type MissionEventType,
+  type ObservationEventType,
 } from './schemas.js';
 import { TransitionError, checkTransition, digestOf, validatePlan, type MissionView } from './transitions.js';
-import { eventHash, foldEvent, GENESIS_HASH } from './fold.js';
+import { checkObservation, eventHash, foldEvent, GENESIS_HASH } from './fold.js';
 import { MissionStore, MissionStoreError } from './store.js';
 import { assessExecutionAdmission, type ExecutionAdmissionRequest } from './execution-admission.js';
 import { OBSERVATION_FILE, buildObservation, observeMission } from './observation.js';
 
-export type Channel = 'cli' | 'mcp';
+export type Channel = 'cli' | 'mcp' | 'internal';
 
 export interface MissionContext {
   readonly projectRoot: string;
@@ -46,6 +47,22 @@ export interface MissionContext {
   readonly executionAdmission?: (
     view: MissionView, action: 'admit' | 'resume',
   ) => ExecutionAdmissionRequest | null | Promise<ExecutionAdmissionRequest | null>;
+  /** Only a registered, independently verifying Native executor may write these events. */
+  readonly authorizeRuntimeEvent?: (
+    view: MissionView, type: NativeRuntimeEventType, payload: Readonly<Record<string, unknown>>,
+  ) => NativeEventProof | null | Promise<NativeEventProof | null>;
+}
+
+/** Internal MissionStore transitions; intentionally absent from CLI and MCP schemas. */
+export type NativeRuntimeEventType = 'executor.acknowledged' | 'executor.observed' |
+  'task.observed' | 'evidence.recorded' | 'tasks.settled' | 'acceptance.passed' |
+  'failure.verified' | 'acceptance.failed';
+
+/** Trusted evidence issued by a registered executor or independent QA authority. */
+export interface NativeEventProof {
+  readonly authorized: true;
+  readonly receiptRef: string;
+  readonly independentQa?: true;
 }
 
 export type MissionResult<T> =
@@ -275,6 +292,87 @@ export class MissionService {
         followUp: neverAdmitted ? () => ({ type: 'cancel.settled', payload: { acknowledgedExecutors: [], settledBy: 'no-executor-admitted' } }) : undefined,
       };
     });
+  }
+
+  /**
+   * Native executor ingress for the stock MissionStore. This is deliberately
+   * NOT a CLI/MCP operation: only an independently verifying in-process host
+   * can append execution observations and QA-gated terminal transitions.
+   */
+  async recordNativeEvent(raw: unknown): Promise<MissionResult<{
+    missionId: string; revision: number; state: string; sequence: number; deduplicated: boolean;
+  }>> {
+    if (this.ctx.channel !== 'internal' || !this.ctx.authorizeRuntimeEvent) {
+      return { ok: false, code: 'executor-unavailable', message: 'no trusted Native runtime event authority' };
+    }
+    const types: readonly NativeRuntimeEventType[] = [
+      'executor.acknowledged', 'executor.observed', 'task.observed', 'evidence.recorded',
+      'tasks.settled', 'acceptance.passed', 'acceptance.failed', 'failure.verified',
+    ];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { ok: false, code: 'invalid-input', message: 'native event must be an object' };
+    }
+    const input = raw as Record<string, unknown>;
+    if (Object.keys(input).some((key) => !['requestId', 'missionId', 'expectedRevision', 'type', 'payload'].includes(key))
+      || typeof input.requestId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(input.requestId)
+      || typeof input.missionId !== 'string' || !/^msn_[a-f0-9]{24}$/.test(input.missionId)
+      || !Number.isSafeInteger(input.expectedRevision) || (input.expectedRevision as number) < 1
+      || !types.includes(input.type as NativeRuntimeEventType)
+      || !input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload)) {
+      return { ok: false, code: 'invalid-input', message: 'invalid Native event envelope' };
+    }
+    const missionId = input.missionId as string;
+    const eventType = input.type as NativeRuntimeEventType;
+    const payload = input.payload as Record<string, unknown>;
+    const requestId = input.requestId as string;
+    const expectedRevision = input.expectedRevision as number;
+    const digest = digestOf({ op: 'mission.recordNativeEvent', input });
+    try {
+      if (!this.store.exists(missionId)) throw new MissionStoreError('not-found', missionId);
+      const result = await this.store.withMission(missionId, async (view, log) => {
+        if (!view) throw new MissionStoreError('not-found', missionId);
+        const previous = this.prior(log.events, requestId, digest);
+        if (previous) return { events: [], view, result: {
+          missionId, revision: previous.revision, state: view.record.state,
+          sequence: previous.seq, deduplicated: true,
+        } };
+        if (expectedRevision !== view.record.revision) throw new RevisionConflict(view.record.revision, expectedRevision);
+        if (['completed', 'failed', 'cancelled'].includes(view.record.state)) {
+          throw new TransitionError('terminal', 'Native Mission terminal is immutable');
+        }
+        const control = eventType !== 'executor.observed' && eventType !== 'task.observed'
+          && eventType !== 'evidence.recorded';
+        if (!control && ['task.observed', 'evidence.recorded'].includes(eventType)
+          && view.record.state !== 'running') {
+          throw new TransitionError('invalid-transition', 'task/evidence observations require running Mission');
+        }
+        const proof = await this.ctx.authorizeRuntimeEvent!(view, eventType, Object.freeze({ ...payload }));
+        if (proof?.authorized !== true || typeof proof.receiptRef !== 'string' || !proof.receiptRef.trim()) {
+          throw new TransitionError('admission-denied', 'independent Native event authority unavailable');
+        }
+        if (eventType === 'evidence.recorded') {
+          const criterion = view.planBody?.acceptance.find(c => c.id === payload.criterionId);
+          if (!criterion || criterion.producer !== payload.producer || payload.verified !== true
+            || (criterion.independent && proof.independentQa !== true)) {
+            throw new TransitionError('admission-denied', 'verified and independent QA evidence required');
+          }
+        }
+        if (control) checkTransition(view, eventType as ControlEventType, payload);
+        else checkObservation(view, eventType as ObservationEventType, payload);
+        const safePayload = { ...payload, policyDecisionRef: proof.receiptRef };
+        const event = this.event(view, missionId, eventType, safePayload,
+          { requestId, digest, expectedRevision: control ? expectedRevision : null }, control);
+        const next = foldEvent(view, event);
+        return { events: [event], view: next, result: {
+          missionId, revision: next.record.revision, state: next.record.state,
+          sequence: event.seq, deduplicated: false,
+        } };
+      });
+      if (!result.deduplicated) await this.publishObservation();
+      return { ok: true, data: result };
+    } catch (error) {
+      return fail(error);
+    }
   }
 
   async get(raw: unknown = {}): Promise<MissionResult<unknown>> {
