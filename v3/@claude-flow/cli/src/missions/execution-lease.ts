@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MissionStore, writeFileAtomic } from './store.js';
+import type { MissionView } from './transitions.js';
 
 const LEASE_FILE = 'execution-lease.json';
 const OWNER_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
@@ -221,6 +222,23 @@ export class ExecutionLeaseStore {
       this.write(id, { ...current!, expiresAt: new Date(now).toISOString(), expiresAtMs: now });
       return { events: [], view, result: undefined };
     });
+  }
+
+  /**
+   * Validate the stock lease while a caller ALREADY holds this MissionStore's
+   * per-mission writer lock (for example MissionService.recordNativeEvent).
+   * Do not call assertCurrent() from that callback: it would reacquire the same
+   * lock and stall. This operation never writes, never grants permission and
+   * must only be used inside the locked Native event boundary.
+   */
+  assertCurrentWithinMission(view: MissionView, presented: ExecutionLease): void {
+    const id = requireMissionId(presented?.missionId);
+    requireOwner(presented?.ownerId);
+    if (!view || view.record.missionId !== id ||
+        view.lease.epoch !== Number(presented.generation)) {
+      throw new ExecutionLeaseError('stale-generation', 'Mission epoch does not match the presented lease');
+    }
+    this.assertCurrentLease(this.read(id), presented, this.timestamp());
   }
 
   /** Validate a presented fence immediately before protected work. */

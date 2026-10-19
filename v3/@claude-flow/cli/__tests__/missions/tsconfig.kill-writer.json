@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@claude-flow/security": ["../../../security/src/index.ts"],
+      "@claude-flow/security/*": ["../../../security/src/*"],
+      "@claude-flow/cli-core/*": ["../../../cli-core/src/*"],
+      "@claude-flow/guidance/compiler": ["../../../guidance/src/compiler.ts"]
+    }
+  }
+}

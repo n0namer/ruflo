@@ -64,11 +64,11 @@ known_test_state:
   focused_vitest: "40/40 PASS on 2026-10-19: actual Ruflo enforce-policy receipts, scoped authorization, CLI/MCP, async admission, replay and cancel; no Codex E2E"
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
-  full_missions: "117/117 PASS in 18 files 2026-10-19 (CLI-local Vitest); Windows SIGKILL subprocess source resolution fixed via test-only hooks; physical Codex and QA E2E still NOT PROVEN"
+  full_missions: "118/118 PASS in 19 files 2026-10-19 including two physical test executors, separate QA check processes and crash/replay; LIVE LLM CODEX STILL NOT PROVEN"
   real_codex_e2e: "BLOCKED: Codex 0.160.1 spawned PID 279956 and thread.started; provider 502 unreachable; no turn.completed, independent QA or terminal"
-  native_terminal_refill: "Native internal event terminal fixture 3/3 PASS and READY/refill fixture 1/1 PASS; no accepted physical E2E or 2 real cycles"
+  native_terminal_refill: "Physical-process fixture: 2 Node workers (stock Codex JSONL), 2 separate QA checker subprocesses, stock Mission terminal/readback/refill PASS; not a real Codex LLM run"
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
-  native_mvp_acceptance: "NOT_ACCEPTED; independently authenticated runtime QA host + real Codex completion, 2 cycles and restart readback still required"
+  native_mvp_acceptance: "NOT_ACCEPTED; physical fixture passed, but real Codex LLM completion, independently authenticated QA and actual resident executor/2 autonomous real cycles remain unproven"
   latest_server_done_this_work: 0
 next_critical_path: "m2-mvp-01-trusted-admission -> m2-mvp-02-frontier-once-journal -> m2-mvp-03-real-codex"
 out_of_scope: "GO Core V2, new planner/runner/store, UI, model routing, mass parallelism, deploy, Telegram"

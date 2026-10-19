@@ -12,7 +12,7 @@ import { plan } from './helpers.js';
 
 let root: string;
 const git = (...args: string[]) => execFileSync('git', ['-C', root, ...args], {
-  encoding: 'utf8', timeout: 5000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'],
+  encoding: 'utf8', timeout: 15000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'],
 });
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'ruflo-policy-m2-'));
@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   installNativeMissionHost(null);
-  rmSync(root, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
 });
 
 async function planned(): Promise<string> {
