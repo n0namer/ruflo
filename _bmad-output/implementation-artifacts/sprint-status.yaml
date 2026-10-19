@@ -64,7 +64,7 @@ known_test_state:
   focused_vitest: "40/40 PASS on 2026-10-19: actual Ruflo enforce-policy receipts, scoped authorization, CLI/MCP, async admission, replay and cancel; no Codex E2E"
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
-  full_missions: "118/118 PASS in 19 files 2026-10-19 including two physical test executors, separate QA check processes and crash/replay; LIVE LLM CODEX STILL NOT PROVEN"
+  full_missions: "123 PASS, 2 opt-in live tests skipped, exit0 on 2026-10-19; includes native-ready-cycle 4/4 and physical-auto-refill 1/1. Separately one real gpt-6-luna Mission terminal PASS, two-real-task stress RED."
   real_codex_e2e: "ONE REAL MISSION COMPLETED: msn_52ac76735bbfadad21da7b6b, gpt-6-luna PID 281872 thread 01a155b3-3e7a-7691-93ce-5301127c18c1, exit0, independent process checksum QA, Native completed rev6, 1/1 live test PASS; not production reviewer. Two-task real run RED: second invocation PID302668 exit1, no terminal."
   native_terminal_refill: "Physical-process fixture: 2 Node workers (stock Codex JSONL), 2 separate QA checker subprocesses, stock Mission terminal/readback/refill PASS; not a real Codex LLM run"
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
