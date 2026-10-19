@@ -57,6 +57,8 @@ export interface CodexDispatchReceipt {
   readonly taskId: string;
   readonly invocationId: string;
   readonly threadId: string;
+  /** Physical Codex thread.started id; distinct from the logical invocation thread binding. */
+  readonly physicalThreadId?: string;
   readonly pid: number | null;
   readonly outcome: CodexExecutorResult['outcome'] | null;
   readonly exitCode: number | null;
@@ -129,6 +131,15 @@ function sameBinding(request: CodexDispatchRequest): boolean {
     && lease.generation === String(invocation.missionEpoch);
 }
 
+/** The CLI's real thread.started id, not a caller-chosen logical binding. */
+function physicalThreadId(result: CodexExecutorResult): string | null {
+  const started = result.events.filter(({ value }) => value !== null &&
+    typeof value === 'object' && (value as Record<string, unknown>).type === 'thread.started');
+  if (started.length !== 1) return null;
+  const id = (started[0].value as Record<string, unknown>).thread_id;
+  return typeof id === 'string' && /^[a-f0-9-]{16,64}$/.test(id) ? id : null;
+}
+
 function physicalReceipt(result: CodexExecutorResult, request: CodexDispatchRequest): boolean {
   const admission = result.admission;
   if (
@@ -137,10 +148,12 @@ function physicalReceipt(result: CodexExecutorResult, request: CodexDispatchRequ
     || admission.leaseEpoch !== request.invocation.missionEpoch
     || admission.authorizationRef !== request.credential.authorizationRef
     || admission.planDigest !== request.invocation.planDigest
-  ) {
-    return false;
-  }
-  return result.events.some(({ value }) => {
+  ) return false;
+  // A physical process must be attributable even when a wrapper emits its own receipt.
+  if (!Number.isSafeInteger(result.pid) || result.pid! <= 0 ||
+      result.exitCode !== 0 || result.terminationConfirmed !== true) return false;
+  // Retain existing wrapped-executor receipts as a compatibility path.
+  const wrapped = result.events.some(({ value }) => {
     if (!value || typeof value !== 'object') return false;
     const event = value as Record<string, unknown>;
     return event.type === 'dispatch.receipt'
@@ -150,6 +163,17 @@ function physicalReceipt(result: CodexExecutorResult, request: CodexDispatchRequ
       && event.invocationId === request.invocation.invocationId
       && event.threadId === request.invocation.threadId;
   });
+  if (wrapped) return true;
+  // Stock Codex exec --json emits thread.started/turn.completed, not dispatch.receipt.
+  // The independent verifyPhysicalReceipt callback is STILL mandatory after this
+  // process-only check. Never promote a successful turn into QA or terminal.
+  return Number.isSafeInteger(result.pid) && result.pid! > 0
+    && result.exitCode === 0 && result.terminationConfirmed === true
+    && physicalThreadId(result) !== null
+    && result.events.some(({ value }) => value !== null &&
+      typeof value === 'object' && (value as Record<string, unknown>).type === 'turn.completed')
+    && !result.events.some(({ value }) => value !== null &&
+      typeof value === 'object' && (value as Record<string, unknown>).type === 'turn.failed');
 }
 
 function receipt(
@@ -164,6 +188,7 @@ function receipt(
     taskId: request.invocation.taskId,
     invocationId: request.invocation.invocationId,
     threadId: request.invocation.threadId,
+    ...(result && physicalThreadId(result) ? { physicalThreadId: physicalThreadId(result)! } : {}),
     pid: result?.pid ?? null,
     outcome: result?.outcome ?? null,
     exitCode: result?.exitCode ?? null,
