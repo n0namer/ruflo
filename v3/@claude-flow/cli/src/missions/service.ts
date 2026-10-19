@@ -33,6 +33,7 @@ import {
 import { TransitionError, checkTransition, digestOf, validatePlan, type MissionView } from './transitions.js';
 import { eventHash, foldEvent, GENESIS_HASH } from './fold.js';
 import { MissionStore, MissionStoreError } from './store.js';
+import { assessExecutionAdmission, type ExecutionAdmissionRequest } from './execution-admission.js';
 import { OBSERVATION_FILE, buildObservation, observeMission } from './observation.js';
 
 export type Channel = 'cli' | 'mcp';
@@ -41,6 +42,10 @@ export interface MissionContext {
   readonly projectRoot: string;
   readonly channel: Channel;
   readonly now?: () => Date;
+  /** Trusted Native runtime only. Never populated from CLI or MCP request fields. */
+  readonly executionAdmission?: (
+    view: MissionView, action: 'admit' | 'resume',
+  ) => ExecutionAdmissionRequest | null;
 }
 
 export type MissionResult<T> =
@@ -108,7 +113,7 @@ export class MissionService {
       channel: this.ctx.channel,
       requestId: request?.requestId ?? null,
       requestDigest: request?.digest ?? null,
-      policyDecisionRef: null,
+      policyDecisionRef: typeof payload.policyDecisionRef === 'string' ? payload.policyDecisionRef : null,
       at: this.now(),
       payload,
       prevHash: view ? view.lastHash : GENESIS_HASH,
@@ -217,15 +222,47 @@ export class MissionService {
   async requestAction(raw: unknown): Promise<MissionResult<{ missionId: string; revision: number; state: string; deduplicated: boolean; sequence: number }>> {
     let input;
     try { input = parse(requestActionInputSchema, raw); } catch (error) { return fail(error); }
-    if (input.action === 'admit' || input.action === 'resume') {
+    if ((input.action === 'admit' || input.action === 'resume') && !this.ctx.executionAdmission) {
       return {
         ok: false,
         code: 'executor-unavailable',
-        message: 'no durable executor independent of the Claude process is admitted yet; admission and resume are not available (ADR-406 M2)',
+        message: 'no trusted durable Native executor/admission authority configured (ADR-406 M2)',
       };
     }
     const digest = digestOf({ op: 'mission.requestAction', input });
     return this.control(input.missionId, input.requestId, input.expectedRevision, digest, (view) => {
+      if (input.action === 'admit' || input.action === 'resume') {
+        if (view.record.executionMode !== 'durable-executor' || !view.planBody || !view.budget) {
+          throw new TransitionError('executor-unavailable', 'mission has no durable executor plan');
+        }
+        // Called only inside the MissionStore transaction, after dedup and revision checks.
+        // Proof comes from trusted Native code, never the untrusted action payload.
+        const facts = this.ctx.executionAdmission!(view, input.action);
+        if (!facts || facts.action !== input.action) {
+          throw new TransitionError('executor-unavailable', 'Native executor admission proof unavailable');
+        }
+        const decision = assessExecutionAdmission(facts);
+        if (!decision.admitted) {
+          throw new TransitionError('admission-denied', `${decision.code}: ${decision.reason}`);
+        }
+        const remaining = view.budget.ceilingMinor - view.budget.reservedMinor
+          - view.budget.settledMinor - view.budget.unresolvedMinor;
+        if (facts.budget.remainingMinor !== remaining
+            || facts.budget.estimatedMinor !== view.budget.estimatedMinor) {
+          throw new TransitionError('admission-denied', 'budget proof does not match current durable Mission ledger');
+        }
+        return {
+          type: input.action === 'admit' ? 'admission.accepted' : 'resume.admitted',
+          payload: {
+            planDigest: view.record.plan.digest,
+            authorizationRef: facts.permissions.authorizationRef,
+            reservationMinor: facts.budget.estimatedMinor,
+            policyDecisionRef: facts.policy.decisionRef,
+            budgetReservationRef: facts.budget.reservationRef,
+            evidenceRefs: decision.evidenceRefs,
+          },
+        };
+      }
       if (input.action === 'requestAuthorization') return { type: 'authorization.missing', payload: { reason: input.reason ?? 'authorization requested for review' } };
       if (input.action === 'pause') return { type: 'pause.accepted', payload: { reason: input.reason ?? null } };
       // Nothing was ever admitted to an executor, so no executor holds work to
