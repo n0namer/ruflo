@@ -18,17 +18,17 @@ import { lstatSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { MissionService } from '../missions/service.js';
+import { nativeMissionService } from '../missions/native-runtime-host.js';
 import type { MissionPort } from '../mcp-tools/mission-tools.js';
 
 const PLAN_FILE_MAX_BYTES = 256 * 1024;
 
 export type MissionPortFactoryCli = (projectRoot: string) => MissionPort;
-let factory: MissionPortFactoryCli = (projectRoot) => new MissionService({ projectRoot, channel: 'cli' });
+let factory: MissionPortFactoryCli = (projectRoot) => nativeMissionService(projectRoot, 'cli');
 
 /** Test seam (London school): substitute the service the command talks to. */
 export function setMissionPortFactory(next: MissionPortFactoryCli | null): void {
-  factory = next ?? ((projectRoot) => new MissionService({ projectRoot, channel: 'cli' }));
+  factory = next ?? ((projectRoot) => nativeMissionService(projectRoot, 'cli'));
 }
 
 function int(value: unknown): number | undefined {

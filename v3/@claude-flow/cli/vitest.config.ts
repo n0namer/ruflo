@@ -15,6 +15,19 @@ export default defineConfig({
         replacement: fileURLToPath(new URL('../guidance/src/compiler.ts', import.meta.url)),
       },
       {
+        // Local source fixture parity: the package dist need not be built for unit tests.
+        find: '@claude-flow/cli-core/mcp-tools/types',
+        replacement: fileURLToPath(new URL('../cli-core/src/mcp-tools/types.ts', import.meta.url)),
+      },
+      {
+        find: '@claude-flow/cli-core/output',
+        replacement: fileURLToPath(new URL('../cli-core/src/output.ts', import.meta.url)),
+      },
+      {
+        find: '@claude-flow/cli-core/types',
+        replacement: fileURLToPath(new URL('../cli-core/src/types.ts', import.meta.url)),
+      },
+      {
         find: '@claude-flow/security/policy/index',
         replacement: fileURLToPath(new URL('../security/src/policy/index.ts', import.meta.url)),
       },

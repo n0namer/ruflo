@@ -9,7 +9,8 @@
 
 import type { MCPTool } from './types.js';
 import { getProjectCwd } from './types.js';
-import { MissionService, type MissionResult } from '../missions/service.js';
+import type { MissionResult } from '../missions/service.js';
+import { nativeMissionService } from '../missions/native-runtime-host.js';
 
 /** The operations an adapter needs; London-school tests substitute it. */
 export interface MissionPort {
@@ -22,7 +23,7 @@ export interface MissionPort {
 
 export type MissionPortFactory = (projectRoot: string) => MissionPort;
 
-const defaultFactory: MissionPortFactory = (projectRoot) => new MissionService({ projectRoot, channel: 'mcp' });
+const defaultFactory: MissionPortFactory = (projectRoot) => nativeMissionService(projectRoot, 'mcp');
 
 function rootOf(context?: Record<string, unknown>): string {
   return typeof context?.projectRoot === 'string' ? context.projectRoot : getProjectCwd();
