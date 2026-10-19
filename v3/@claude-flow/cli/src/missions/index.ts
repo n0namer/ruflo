@@ -16,3 +16,5 @@ export { createNativeAuthorizedQaReview } from './native-qa-authority.js';
 export type { TrustedReviewerReadback, IndependentQaAuthorityPorts } from './native-qa-authority.js';
 export { createPinnedQaAuthenticator, createPinnedNativeQaReview } from './native-qa-attestation.js';
 export type { SignedReviewerReadback, PinnedQaVerifierOptions } from './native-qa-attestation.js';
+export { createExternalReviewerReadback, createExternalPinnedNativeQaReview, createExternallyReviewedNativeM2FactoryDriver } from './native-qa-external-readback.js';
+export type { ExternalQaResidentPorts } from './native-qa-external-readback.js';
