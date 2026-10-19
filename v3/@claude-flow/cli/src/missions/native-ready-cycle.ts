@@ -33,6 +33,15 @@ export interface NativeReadyCycleOptions {
   /** Persist verified outcome in the EXISTING invocation journal before Native task.done. */
   readonly settle: (taskId: string, receipt: CodexDispatchReceipt, qa: VerifiedTaskResult) =>
     Promise<boolean>;
+  /**
+   * Optional read-only, TRUSTED recovery from an already-succeeded invocation.
+   * The host must verify the original ExecutionInvocationJournal receipt is
+   * succeeded and its outcomeDigest, invocationId, source, lease, and independent
+   * QA receipt all match this mission/plan. Never invent authority from payloads.
+   * A null result NEVER permits a replay of a dispatched invocation.
+   */
+  readonly recoverSettled?: (taskId: string, view: MissionView) =>
+    Promise<(VerifiedTaskResult & { readonly invocationId: string }) | null>;
 }
 
 export type NativeReadyCycleResult = {
@@ -80,12 +89,83 @@ export async function runNativeReadyCycle(options: NativeReadyCycleOptions): Pro
     })) return result('blocked', 'native-executor-ack-refused');
     view = read()!;
   }
-  if (view.record.state !== 'running') return result('blocked', 'not-running');
+  if (!['running', 'verifying'].includes(view.record.state)) return result('blocked', 'not-running');
+
+  const validQa = (qa: VerifiedTaskResult | null): qa is VerifiedTaskResult =>
+    !!qa && qa.accepted === true && SHA256.test(qa.artifactDigest) &&
+    ID.test(qa.evidenceId) && ID.test(qa.reviewerRunId);
+
+  /** Append from an authenticated, already-durable QA outcome only. */
+  const appendAccepted = async (
+    taskId: string, taskView: MissionView, invocationId: string, qa: VerifiedTaskResult,
+    recovering: boolean,
+  ): Promise<boolean> => {
+    const observed = taskView.tasks[taskId];
+    if (recovering && (!ID.test(invocationId) || !validQa(qa) ||
+      qa.reviewerRunId === invocationId ||
+      (observed?.invocationId && observed.invocationId !== invocationId))) return false;
+    if (observed?.status !== 'recorded-done') {
+      if (!await write(options.cycleId + ':' + taskId + ':done', 'task.observed', {
+        taskId, status: 'recorded-done', leaseEpoch: taskView.lease.epoch, invocationId,
+      })) return false;
+    }
+    const spec = taskView.planBody?.tasks.find(t => t.id === taskId);
+    for (const criterionId of spec?.acceptanceEvidence ?? []) {
+      const criterion = taskView.planBody?.acceptance.find(c => c.id === criterionId);
+      if (!criterion) return false;
+      const latest = read();
+      // Check current revision AND criteria digest: old evidence cannot be reused.
+      if (latest?.evidence.some(e => e.taskId === taskId &&
+          e.criterionId === criterionId && e.verified &&
+          e.planRevision === latest.record.plan.revision &&
+          e.criteriaDigest === latest.record.acceptance.criteriaDigest &&
+          e.artifactDigest === qa.artifactDigest)) continue;
+      if (!await write(options.cycleId + ':' + taskId + ':qa:' + criterionId,
+        'evidence.recorded', {
+          evidenceId: qa.evidenceId + ':' + criterionId, criterionId, taskId,
+          producer: criterion.producer, artifactDigest: qa.artifactDigest, verified: true,
+        })) return false;
+    }
+    return true;
+  };
+
+  if (view.record.state === 'running') {
+  // Recover evidence missing after a crash between durable task completion and
+  // QA observation. Do not dispatch a completed task to repair its evidence.
+  view = read()!;
+  for (const spec of view.planBody!.tasks) {
+    if (view.tasks[spec.id]?.status !== 'recorded-done') continue;
+    const missing = spec.acceptanceEvidence.some(criterionId =>
+      !view.evidence.some(e => e.taskId === spec.id &&
+        e.criterionId === criterionId && e.verified &&
+        e.planRevision === view!.record.plan.revision &&
+        e.criteriaDigest === view!.record.acceptance.criteriaDigest));
+    if (!missing) continue;
+    let recovered: Awaited<ReturnType<NonNullable<NativeReadyCycleOptions['recoverSettled']>>> = null;
+    try { recovered = await options.recoverSettled?.(spec.id, view) ?? null; } catch { /* fail closed */ }
+    if (!recovered || !validQa(recovered) ||
+      !await appendAccepted(spec.id, view, recovered.invocationId, recovered, true)) {
+      return result('blocked', 'evidence-recovery-required');
+    }
+    view = read()!;
+  }
 
   for (let i = 0; i < options.maxTasks; i++) {
     view = read()!;
     const [taskId] = readyTaskIdsFromMission(view, 1);
     if (!taskId) break;
+    // A crash may follow a confirmed journal settlement before task.observed.
+    // Recover only from independently attested durable receipts; never redisp.
+    let recovered: Awaited<ReturnType<NonNullable<NativeReadyCycleOptions['recoverSettled']>>> = null;
+    try { recovered = await options.recoverSettled?.(taskId, view) ?? null; } catch { /* fail closed */ }
+    if (recovered) {
+      if (!validQa(recovered) || !ID.test(recovered.invocationId) ||
+          !await appendAccepted(taskId, view, recovered.invocationId, recovered, true)) {
+        return result('blocked', 'settlement-recovery-refused');
+      }
+      done.push(taskId);
+      continue;
+    }
     let observation: CodexPortObservation;
     try {
       observation = await options.dispatch(taskId, view);
@@ -109,9 +189,7 @@ export async function runNativeReadyCycle(options: NativeReadyCycleOptions): Pro
 
     let qa: VerifiedTaskResult | null;
     try { qa = await options.review(taskId, receipt, view); } catch { qa = null; }
-    if (!qa || qa.accepted !== true || !SHA256.test(qa.artifactDigest) ||
-        !ID.test(qa.evidenceId) || !ID.test(qa.reviewerRunId) ||
-        qa.reviewerRunId === receipt.invocationId) {
+    if (!validQa(qa) || qa.reviewerRunId === receipt.invocationId) {
       await write(options.cycleId + ':' + taskId + ':qa-unknown', 'task.observed', {
         taskId, status: 'unknown', leaseEpoch: view.lease.epoch,
         invocationId: receipt.invocationId,
@@ -122,37 +200,33 @@ export async function runNativeReadyCycle(options: NativeReadyCycleOptions): Pro
     try { settled = await options.settle(taskId, receipt, qa); } catch { /* fail closed */ }
     if (!settled) return result('blocked', 'journal-settlement-unconfirmed');
 
-    if (!await write(options.cycleId + ':' + taskId + ':done', 'task.observed', {
-      taskId, status: 'recorded-done', leaseEpoch: view.lease.epoch,
-      invocationId: receipt.invocationId,
-    })) return result('blocked', 'native-task-observation-refused');
-
-    const spec = view.planBody.tasks.find(task => task.id === taskId);
-    for (const criterionId of spec?.acceptanceEvidence ?? []) {
-      const criterion = view.planBody.acceptance.find(c => c.id === criterionId);
-      if (!criterion || !await write(options.cycleId + ':' + taskId + ':qa:' + criterionId,
-        'evidence.recorded', {
-          evidenceId: qa.evidenceId + ':' + criterionId, criterionId, taskId,
-          producer: criterion.producer, artifactDigest: qa.artifactDigest, verified: true,
-        })) return result('blocked', 'native-independent-qa-refused');
+    if (!await appendAccepted(taskId, view, receipt.invocationId, qa, false)) {
+      return result('blocked', 'native-task-or-independent-qa-refused');
     }
     done.push(taskId);
   }
+  } // Once a Mission is verifying, replay ONLY its terminal decision, never workers.
   view = read()!;
   if (view.planBody?.tasks.some(t => view!.tasks[t.id]?.status !== 'recorded-done') ||
       view.unresolvedOperations.length) return result('partial', 'awaiting-more-accepted-ready');
 
-  // All mandatory criteria must have authenticated evidence for ONE exact SHA.
+  // Choose any *current-plan* digest covering ALL mandatory criteria. Old
+  // evidence or a partially-covered digest must never shadow a valid set.
   const mandatory = view.planBody.acceptance.filter(c => c.mandatory);
-  const digest = view.evidence.find(e => e.verified && mandatory.some(c => c.id === e.criterionId))?.artifactDigest;
-  if (!digest || !SHA256.test(digest) || !mandatory.every(c => view!.evidence.some(e =>
-    e.criterionId === c.id && e.verified && e.artifactDigest === digest &&
-    e.planRevision === view!.record.plan.revision &&
-    e.criteriaDigest === view!.record.acceptance.criteriaDigest))) {
-    return result('blocked', 'mandatory-qa-evidence-missing');
-  }
-  if (!await write(options.cycleId + ':settled', 'tasks.settled', {})) {
-    return result('blocked', 'native-settlement-refused');
+  const currentEvidence = view.evidence.filter(e => e.verified &&
+    e.planRevision === view.record.plan.revision &&
+    e.criteriaDigest === view.record.acceptance.criteriaDigest &&
+    SHA256.test(e.artifactDigest));
+  const digest = [...new Set(currentEvidence.map(e => e.artifactDigest))].find(candidate =>
+    mandatory.every(c => currentEvidence.some(e =>
+      e.criterionId === c.id && e.artifactDigest === candidate)));
+  if (!digest) return result('blocked', 'mandatory-qa-evidence-missing');
+  if (view.record.state === 'running') {
+    if (!await write(options.cycleId + ':settled', 'tasks.settled', {})) {
+      return result('blocked', 'native-settlement-refused');
+    }
+  } else if (view.record.state !== 'verifying') {
+    return result('blocked', 'not-verifying');
   }
   if (!await write(options.cycleId + ':terminal', 'acceptance.passed', { artifactDigest: digest })) {
     return result('blocked', 'native-terminal-refused');
