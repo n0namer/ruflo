@@ -155,7 +155,7 @@ export class MissionStore {
    */
   async withMission<T>(
     missionId: string,
-    fn: (view: MissionView | null, log: LogRead) => { events: MissionEvent[]; result: T; view: MissionView | null },
+    fn: (view: MissionView | null, log: LogRead) => { events: MissionEvent[]; result: T; view: MissionView | null } | Promise<{ events: MissionEvent[]; result: T; view: MissionView | null }>,
   ): Promise<T> {
     const dir = this.missionDir(missionId);
     mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -164,7 +164,7 @@ export class MissionStore {
       const log = this.readLog(missionId);
       if (log.tornTail) truncateSync(this.logPath(missionId), log.validBytes);
       const view = this.loadView(missionId, log);
-      const outcome = fn(view, log);
+      const outcome = await fn(view, log);
       if (outcome.events.length) {
         this.append(missionId, outcome.events);
         if (outcome.view) this.writeSnapshot(missionId, outcome.view);

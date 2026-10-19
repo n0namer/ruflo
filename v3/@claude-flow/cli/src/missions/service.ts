@@ -45,7 +45,7 @@ export interface MissionContext {
   /** Trusted Native runtime only. Never populated from CLI or MCP request fields. */
   readonly executionAdmission?: (
     view: MissionView, action: 'admit' | 'resume',
-  ) => ExecutionAdmissionRequest | null;
+  ) => ExecutionAdmissionRequest | null | Promise<ExecutionAdmissionRequest | null>;
 }
 
 export type MissionResult<T> =
@@ -169,23 +169,23 @@ export class MissionService {
   /** Run a control transition with request dedup and an expected-revision check. */
   private async control(
     missionId: string, requestId: string, expectedRevision: number, digest: string,
-    decide: (view: MissionView) => { type: ControlEventType; payload: Record<string, unknown>; then?: (next: MissionView) => { type: ControlEventType; payload: Record<string, unknown> } | null },
+    decide: (view: MissionView) => { type: ControlEventType; payload: Record<string, unknown>; followUp?: (next: MissionView) => { type: ControlEventType; payload: Record<string, unknown> } | null } | Promise<{ type: ControlEventType; payload: Record<string, unknown>; followUp?: (next: MissionView) => { type: ControlEventType; payload: Record<string, unknown> } | null }>,
   ): Promise<MissionResult<{ missionId: string; revision: number; state: string; deduplicated: boolean; sequence: number }>> {
     try {
       if (!this.store.exists(missionId)) throw new MissionStoreError('not-found', missionId);
-      const result = await this.store.withMission(missionId, (view, log) => {
+      const result = await this.store.withMission(missionId, async (view, log) => {
         if (!view) throw new MissionStoreError('not-found', missionId);
         const prior = this.prior(log.events, requestId, digest);
         if (prior) {
           return { events: [], view, result: { missionId, revision: prior.revision, state: view.record.state, deduplicated: true, sequence: prior.seq } };
         }
         if (expectedRevision !== view.record.revision) throw new RevisionConflict(view.record.revision, expectedRevision);
-        const { type, payload, then } = decide(view);
+        const { type, payload, followUp } = await decide(view);
         checkTransition(view, type, payload);
         const event = this.event(view, missionId, type, payload, { requestId, digest, expectedRevision }, true);
         let next = foldEvent(view, event);
         const events = [event];
-        const follow = then?.(next);
+        const follow = followUp?.(next);
         if (follow) {
           // A consequence decided by the runtime in the same transaction, not a client request.
           const second = this.event(next, missionId, follow.type, follow.payload, { requestId: `${requestId}#settle`, digest, expectedRevision: next.record.revision }, true);
@@ -230,14 +230,14 @@ export class MissionService {
       };
     }
     const digest = digestOf({ op: 'mission.requestAction', input });
-    return this.control(input.missionId, input.requestId, input.expectedRevision, digest, (view) => {
+    return this.control(input.missionId, input.requestId, input.expectedRevision, digest, async (view) => {
       if (input.action === 'admit' || input.action === 'resume') {
         if (view.record.executionMode !== 'durable-executor' || !view.planBody || !view.budget) {
           throw new TransitionError('executor-unavailable', 'mission has no durable executor plan');
         }
         // Called only inside the MissionStore transaction, after dedup and revision checks.
         // Proof comes from trusted Native code, never the untrusted action payload.
-        const facts = this.ctx.executionAdmission!(view, input.action);
+        const facts = await this.ctx.executionAdmission!(view, input.action);
         if (!facts || facts.action !== input.action) {
           throw new TransitionError('executor-unavailable', 'Native executor admission proof unavailable');
         }
@@ -272,7 +272,7 @@ export class MissionService {
       return {
         type: 'cancel.admitted',
         payload: { reason: input.reason ?? null },
-        then: neverAdmitted ? () => ({ type: 'cancel.settled', payload: { acknowledgedExecutors: [], settledBy: 'no-executor-admitted' } }) : undefined,
+        followUp: neverAdmitted ? () => ({ type: 'cancel.settled', payload: { acknowledgedExecutors: [], settledBy: 'no-executor-admitted' } }) : undefined,
       };
     });
   }

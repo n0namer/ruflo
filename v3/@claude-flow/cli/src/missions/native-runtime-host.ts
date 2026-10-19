@@ -42,10 +42,12 @@ export function nativeMissionService(projectRoot: string, channel: Channel): Mis
     projectRoot,
     channel,
     ...(host ? {
-      executionAdmission: (view: MissionView, action: 'admit' | 'resume') => {
-        // Re-read current registration and readiness: removing/revoking it is immediate.
+      executionAdmission: async (view: MissionView, action: 'admit' | 'resume') => {
+        // Host revocation may race an asynchronous policy check: fence both sides.
         if (nativeHost !== host || !host.durableExecutorReady()) return null;
-        return host.executionAdmission(view, action);
+        const evidence = await host.executionAdmission(view, action);
+        if (nativeHost !== host || !host.durableExecutorReady()) return null;
+        return evidence;
       },
     } : {}),
   });

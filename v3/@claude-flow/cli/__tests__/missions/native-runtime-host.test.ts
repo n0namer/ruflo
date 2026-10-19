@@ -73,6 +73,79 @@ describe('Native Mission host shared CLI/MCP seam', () => {
     } });
     expect(await action(missionId, 'cli-admit', 2)).toMatchObject({ ok: true, data: { deduplicated: true } });
   });
+  it('awaits asynchronous policy evidence inside the revision fence and deduplicates replay', async () => {
+    const missionId = await prepare();
+    let checked = 0;
+    installNativeMissionHost({
+      durableExecutorReady: () => true,
+      executionAdmission: async (view, kind) => {
+        checked++;
+        await Promise.resolve();
+        return authority(view, kind);
+      },
+    });
+    const input = { requestId: 'async-admit', missionId, expectedRevision: 2, action: 'admit' };
+    const service = nativeMissionService(root, 'cli');
+    expect(await service.requestAction(input)).toMatchObject({ ok: true, data: { revision: 3, state: 'queued' } });
+    expect(await service.requestAction(input)).toMatchObject({ ok: true, data: { deduplicated: true } });
+    expect(checked).toBe(1);
+  });
+  it('denied asynchronous admission preserves revision and no authorization event', async () => {
+    const missionId = await prepare();
+    installNativeMissionHost({
+      durableExecutorReady: () => true,
+      executionAdmission: async (view, kind) => {
+        await Promise.resolve();
+        return { ...authority(view, kind), policy: { allowed: false, decisionRef: 'policy:denied' } };
+      },
+    });
+    expect(await action(missionId, 'async-deny')).toMatchObject({ ok: false, code: 'admission-denied' });
+    expect(await nativeMissionService(root, 'cli').get({ missionId })).toMatchObject({
+      ok: true, data: { record: { revision: 2, state: 'planned' }, budget: { reservedMinor: 0 } },
+    });
+    const events = await nativeMissionService(root, 'cli').events({ missionId });
+    expect(events.ok && events.data.events.filter(e => e.type === 'admission.accepted')).toHaveLength(0);
+  });
+  it('concurrent async admission requests can commit at most one authorization', async () => {
+    const missionId = await prepare();
+    let evaluated = 0;
+    installNativeMissionHost({
+      durableExecutorReady: () => true,
+      executionAdmission: async (view, kind) => {
+        evaluated++;
+        await Promise.resolve();
+        return authority(view, kind);
+      },
+    });
+    const [first, second] = await Promise.all([
+      action(missionId, 'concurrent-a'), action(missionId, 'concurrent-b'),
+    ]);
+    expect([first.ok, second.ok].filter(Boolean)).toHaveLength(1);
+    expect([first, second].find(result => !result.ok)).toMatchObject({ code: 'revision-conflict' });
+    expect(evaluated).toBe(1);
+  });
+  it('rejects authority that resolves after Native host revocation', async () => {
+    const missionId = await prepare();
+    let entered!: () => void;
+    let release!: () => void;
+    const checking = new Promise<void>(resolve => { entered = resolve; });
+    installNativeMissionHost({
+      durableExecutorReady: () => true,
+      executionAdmission: async (view, kind) => {
+        entered();
+        await new Promise<void>(resolve => { release = resolve; });
+        return authority(view, kind);
+      },
+    });
+    const pending = action(missionId, 'revoked-mid-check');
+    await checking;
+    installNativeMissionHost(null);
+    release();
+    expect(await pending).toMatchObject({ ok: false, code: 'executor-unavailable' });
+    expect(await nativeMissionService(root, 'cli').get({ missionId })).toMatchObject({
+      ok: true, data: { record: { revision: 2, state: 'planned' } },
+    });
+  });
   it('revoking a host invalidates an already created service before admission', async () => {
     const missionId = await prepare();
     installNativeMissionHost({ durableExecutorReady: () => true, executionAdmission: authority });
