@@ -223,3 +223,32 @@ export function replanAffected(
 
   return refillReady(derive(tasks));
 }
+
+
+/**
+ * Derive the actionable READY slice from the authoritative MissionStore view,
+ * using the existing stock DAG/frontier implementation. This is a read-only
+ * refill decision; the Native host must still enforce policy/lease/journal
+ * before launching each physical Codex invocation.
+ */
+export function readyTaskIdsFromMission(
+  view: Pick<import('./transitions.js').MissionView, 'record' | 'planBody' | 'tasks'>,
+  limit = 1,
+): readonly string[] {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64) {
+    throw new RangeError('READY concurrency limit must be between 1 and 64');
+  }
+  if (!view.planBody || view.record.executionMode !== 'durable-executor'
+    || !['queued', 'running'].includes(view.record.state)) return [];
+  const previous: Record<string, MissionTaskStatus> = Object.create(null);
+  for (const task of view.planBody.tasks) {
+    const status = view.tasks[task.id]?.status ?? 'pending';
+    previous[task.id] = status === 'recorded-done' ? 'succeeded'
+      : status === 'unknown' ? 'blocked' : status;
+  }
+  const frontier = createMissionFrontier(
+    view.planBody.tasks.map(task => ({ id: task.id, dependsOn: task.dependsOn })),
+    previous,
+  );
+  return frontier.ready.slice(0, limit);
+}
