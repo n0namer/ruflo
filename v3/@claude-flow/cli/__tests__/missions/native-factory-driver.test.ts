@@ -106,6 +106,41 @@ describe('M2 factory driver binds existing MissionStore and READY cycle',()=>{
      rmSync(factoryRoot,{recursive:true,force:true,maxRetries:5,retryDelay:70});
    }
  });
+ it.runIf(Boolean(process.env.RUFLO_M2_FACTORY_CHECKOUT))(
+ 'stock Factory PID-fenced resident polls original MissionStore through three READY slices',async()=>{
+   const f=await prepared();
+   const folder=resolve(process.env.RUFLO_M2_FACTORY_CHECKOUT!);
+   const url=pathToFileURL(join(folder,'lib','factory-autopilot-service.mjs')).href;
+   const factory=await import(/* @vite-ignore */ url);
+   const factoryRoot=mkdtempSync(join(tmpdir(),'ruflo-resident-native-crossrepo-'));
+   mkdirSync(join(factoryRoot,'runtime','provider-guardian'),{recursive:true});
+   writeFileSync(join(factoryRoot,'runtime','provider-guardian','circuit.json'),
+     JSON.stringify({mode:'CLOSED'}));
+   let claims=0,releases=0;
+   const options={
+     project:'ruflo',profile:{root},projectPath:root,factoryRoot,
+     nativeMissionId:f.missionId,nativeMissionRuntime:f.driver,
+     nativeMaxTasks:1,pollIntervalMs:10,
+     nativeHumanControl:()=>({allowed:true,state:{mode:'ACTIVE'}}),
+     nativeProviderAdmission:()=>({allowed:true,state:{mode:'CLOSED'}}),
+     providerCapacityAcquire:async()=>{claims++;return {slots:['capacity:provider:fixture:0']}},
+     providerCapacityRelease:async()=>{releases++;return true},
+     nativeVerifyProviderSlot:async slot=>slot.slots?.[0]==='capacity:provider:fixture:0',
+   };
+   try {
+     const first=await factory.runCanonicalProdService(options);
+     expect(first).toMatchObject({status:'NATIVE_MISSION_TERMINAL_READBACK',cycles:3,
+       last:{nativeState:'completed',performed:['verify'],serverDone:false}});
+     expect(claims).toBe(3);
+     expect(releases).toBe(3);
+     expect(f.launched).toBe(3);
+     const restart=await factory.runCanonicalProdService(options);
+     expect(restart).toMatchObject({status:'BLOCKED_NATIVE_M2',cycles:1,
+       last:{reason:'native-mission-scope-or-state-invalid'}});
+     expect(f.launched).toBe(3);
+     expect(releases).toBe(3);
+   } finally {rmSync(factoryRoot,{recursive:true,force:true,maxRetries:5,retryDelay:80});}
+ });
  it('existing Factory-gated Native driver executes three dependent Mission tasks to terminal',async()=>{
    const f=await prepared();
    const gates:string[]=[];
