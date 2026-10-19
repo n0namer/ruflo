@@ -24,9 +24,9 @@ development_status:
   m2-mvp-00-reconcile: in-review
   m2-mvp-01-trusted-admission: in-progress
   m2-mvp-02-frontier-once-journal: in-review
-  m2-mvp-03-real-codex: in-progress
-  m2-mvp-04-independent-qa-terminal: blocked
-  m2-mvp-05-two-refills: in-progress
+  m2-mvp-03-real-codex: in-review
+  m2-mvp-04-independent-qa-terminal: in-progress
+  m2-mvp-05-two-refills: in-review
   m2-mvp-06-restart-replay: in-review
 
 minimal_mvp_work:
@@ -65,10 +65,10 @@ known_test_state:
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
   full_missions: "127 PASS, 4 opt-in live tests skipped, exit0 in serial Windows run on 2026-10-19. One parallel SIGKILL test had an intermittent lock/readback fail but isolated and serial reruns GREEN. QA recovery, verifying->terminal, no redispatch, current-plan digest, physical mock refill included; not production QA."
-  real_codex_e2e: "TWO SEPARATE real gpt-6-luna Missions completed: msn_52ac76735bbfadad21da7b6b (PID281872, checksum QA), msn_aa04a4f137331fed6ba817ab (PID302048, JS sumFinite tested by independent QA PID293804, 10 checks), Native completed rev6. Both live tests 1/1 PASS. Same-Mission two-real-task stress RED second exit1."
-  native_terminal_refill: "Native once/refill mock physical two-task terminal PASS; Factory resident bridge and Native MissionStore integration 4/4 PASS; provider slot owner/session/TTL verify and original CrewSync release readback 13/13 PASS on Factory branch 460be1d. 2-real-Codex same-Mission RED second 429, no accepted production terminal."
+  real_codex_e2e: "FIRST SAME-MISSION TWO-REAL-CODEX FACTORY LIVE E2E PASS 2026-10-20: msn_8b7af32f94ddc71b0afffa6f; make PID313652 exit0 QA PID316612 10 cases; dependent review PID309008 exit0 QA PID304604 10 cases; Native completed + Factory terminal readback, one owned CrewSync background slot1. 1/1 opt-in live test PASS in 233s, no manual refill. Separately prior 2 distinct real Missions PASS."
+  native_terminal_refill: "PASS: ONE Factory-controlled same-Mission real Codex two-task refill, 2 worker PIDs, 2 distinct independent QA PIDs, original Native journal lease and terminal readback, CrewSync slot1 claimed/verified/released. Old 429 RED retained as historical test; current proof PASS. Production reviewer credential authority/always-on host still P0."
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
-  native_mvp_acceptance: "PARTIAL REAL E2E: 2 separate gpt-6-luna Missions completed. Same-Mission two-real-task refill RED: make real worker exit0 + separate QA 10/10, dependent review real worker exit1; Codex session confirms 429 Too Many Requests. Correctly failed closed, no terminal. Recovery P1 fixed, production QA/daemon still unaccepted; SERVER_DONE=0."
+  native_mvp_acceptance: "FUNCTIONAL M2 E2E ACCEPTED IN OPT-IN TEST: real Factory+CrewSync slot+2 gpt-6-luna workers+2 separate deterministic QA subprocesses+automatic READY refill+Native completed/readback PASS. Still NOT PRODUCTION NORTH STAR: external authenticated reviewer service and installed resident loop/goal intake missing; CrewSync new SERVER_DONE=0."
   latest_server_done_this_work: 0
-next_critical_path: "production Native executor+independent reviewer host -> current Factory provider canary+CrewSync slot -> 2 real Codex tasks same Mission -> separate SHA QA -> server DONE"
+next_critical_path: "install authenticated independent QA reviewer service + trusted Native resident bootstrap -> 1 production governed Mission/cross-process restart -> SHA-bound external QA -> CrewSync SERVER_DONE; no new planner"
 out_of_scope: "GO Core V2, new planner/runner/store, UI, model routing, mass parallelism, deploy, Telegram"
