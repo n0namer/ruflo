@@ -10,3 +10,5 @@ export * from './service.js';
 // ADR-406 M2: bounded native READY/refill facade; uses this same MissionStore.
 export { runNativeReadyCycle } from './native-ready-cycle.js';
 export type { NativeReadyCycleOptions, NativeReadyCycleResult, VerifiedTaskResult } from './native-ready-cycle.js';
+export { createNativeM2FactoryDriver } from './native-factory-driver.js';
+export type { TrustedNativeM2Ports } from './native-factory-driver.js';

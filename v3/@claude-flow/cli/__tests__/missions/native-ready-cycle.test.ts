@@ -244,6 +244,32 @@ describe('single native once/refill pass uses stock READY and terminal', () => {
     expect(f.view().record.revision).toBe(6);
     expect(f.calls).toHaveLength(3);
   });
+  it('rechecks Factory admission before EVERY dependent physical launch', async () => {
+    const f = await fixture();
+    let admitted = true;
+    const checked: string[] = [];
+    const result = await runNativeReadyCycle({
+      ...f.options, cycleId:'factory-capacity-check',
+      beforeDispatch: async taskId => {
+        checked.push(taskId);
+        if (taskId === 'evaluate') admitted = false; // Simulated 429 / project pause.
+        return admitted;
+      },
+    });
+    expect(result).toMatchObject({
+      status:'blocked',reason:'factory-admission-revoked',state:'running',performed:['produce'],
+    });
+    expect(checked).toEqual(['produce','evaluate']);
+    expect(f.calls).toEqual(['produce']); // No second executor was launched.
+    expect(f.view().tasks.evaluate.status).toBe('pending');
+  });
+  it('rejects missing admission before the first worker and makes no terminal change', async () => {
+    const f = await fixture();
+    expect(await runNativeReadyCycle({...f.options,cycleId:'guardian-block',
+      beforeDispatch: async () => false}))
+      .toMatchObject({status:'blocked',reason:'factory-admission-revoked',performed:[],state:'running'});
+    expect(f.calls).toEqual([]);
+  });
   it('rejects invalid cycle bounds without process or state writes', async () => {
     const f = await fixture();
     await expect(runNativeReadyCycle({...f.options,maxTasks:0})).rejects.toThrow('maxTasks');

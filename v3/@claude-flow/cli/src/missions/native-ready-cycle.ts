@@ -25,6 +25,8 @@ export interface NativeReadyCycleOptions {
   /** Stable identity of the caller-owned cycle, not a client-provided grant. */
   readonly cycleId: string;
   readonly maxTasks: number;
+  /** Existing Factory Guardian/Human/provider-slot gate, rechecked before EACH physical dispatch. */
+  readonly beforeDispatch?: (taskId: string, view: MissionView) => boolean | Promise<boolean>;
   /** Existing lease/journal/credential-fenced CodexMissionPort only. */
   readonly dispatch: (taskId: string, view: MissionView) => Promise<CodexPortObservation>;
   /** Independent reviewer fetches/checks original artifact and provider receipts. */
@@ -166,6 +168,10 @@ export async function runNativeReadyCycle(options: NativeReadyCycleOptions): Pro
       done.push(taskId);
       continue;
     }
+    let admitted = false;
+    try { admitted = options.beforeDispatch ? await options.beforeDispatch(taskId, view) === true : true; }
+    catch { admitted = false; }
+    if (!admitted) return result('blocked', 'factory-admission-revoked');
     let observation: CodexPortObservation;
     try {
       observation = await options.dispatch(taskId, view);
