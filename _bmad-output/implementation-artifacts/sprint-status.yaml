@@ -8,7 +8,7 @@ tracking_system: "crew-sync"
 authority: "stock Ruflo MissionStore for Native lifecycle; CrewSync for development task status"
 upstream_base: "6cdad1ae0e4123a307a257b06d4a89b3962f1a53"
 candidate_commits: ["2c63898ef", "38a50e865"]
-branch: "native-m2-upstream-20261019"
+branch: "native-m2-real-e2e-20261019"
 mission_e2e_accepted: false
 go_core_v2_enabled: false
 
@@ -21,13 +21,13 @@ crew_sync_snapshot:
   warning: "Existing three DONE are bounded QA results, not native M2 E2E."
 
 development_status:
-  m2-mvp-00-reconcile: in-progress
+  m2-mvp-00-reconcile: in-review
   m2-mvp-01-trusted-admission: in-progress
-  m2-mvp-02-frontier-once-journal: in-progress
+  m2-mvp-02-frontier-once-journal: in-review
   m2-mvp-03-real-codex: in-progress
   m2-mvp-04-independent-qa-terminal: blocked
   m2-mvp-05-two-refills: in-progress
-  m2-mvp-06-restart-replay: in-progress
+  m2-mvp-06-restart-replay: in-review
 
 minimal_mvp_work:
   m2-mvp-00-reconcile:
@@ -70,5 +70,5 @@ known_test_state:
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
   native_mvp_acceptance: "PARTIAL REAL E2E: 2 separate gpt-6-luna Missions completed. Same-Mission two-real-task refill RED: make real worker exit0 + separate QA 10/10, dependent review real worker exit1; Codex session confirms 429 Too Many Requests. Correctly failed closed, no terminal. Recovery P1 fixed, production QA/daemon still unaccepted; SERVER_DONE=0."
   latest_server_done_this_work: 0
-next_critical_path: "m2-mvp-01-trusted-admission -> m2-mvp-02-frontier-once-journal -> m2-mvp-03-real-codex"
+next_critical_path: "production Native executor+independent reviewer host -> current Factory provider canary+CrewSync slot -> 2 real Codex tasks same Mission -> separate SHA QA -> server DONE"
 out_of_scope: "GO Core V2, new planner/runner/store, UI, model routing, mass parallelism, deploy, Telegram"
