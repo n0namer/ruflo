@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +8,7 @@ import { MissionStore } from '../../src/missions/store.js';
 import { ExecutionLeaseStore } from '../../src/missions/execution-lease.js';
 import { ExecutionInvocationJournal } from '../../src/missions/execution-invocation-journal.js';
 import { createNativeAuthorizedQaReview } from '../../src/missions/native-qa-authority.js';
+import { createPinnedNativeQaReview } from '../../src/missions/native-qa-attestation.js';
 import { INDEPENDENT_QA_SCHEMA, STOCK_OUTCOME_SCHEMA } from '../../src/missions/execution-quality.js';
 import { plan } from './helpers.js';
 const hash = (text:string) => 'sha256:'+createHash('sha256').update(text).digest('hex');
@@ -95,6 +96,31 @@ describe('Native trusted independent QA readback (never CLI-supplied)',()=>{
       accepted:true,artifactDigest:hash('file-content'),reviewerRunId:'independent-review-run',
       evidenceId:'review-receipt-1',
     });
+ });
+ it('accepts a genuinely signed independent reviewer through production QA composition',async()=>{
+  const f=await prepared();
+  const {privateKey,publicKey}=generateKeyPairSync('ed25519');
+  const signedAt=Date.parse('2026-10-20T00:02:00.000Z');
+  const reviewerPrincipalId='external-code-reviewer';
+  const receipt=f.qa;
+  const payload=JSON.stringify([
+    'ruflo.m2.qa-attestation/v1',reviewerPrincipalId,receipt.receiptId,
+    receipt.schema,receipt.receiptId,receipt.missionId,receipt.executionId,
+    receipt.planRevision,receipt.criteriaDigest,receipt.artifactDigest,
+    receipt.verdict,receipt.producer.kind,receipt.producer.qaRunId,
+    receipt.evidenceRef,receipt.issuedAt,
+  ]);
+  const signatureBase64=sign(null,Buffer.from(payload),privateKey).toString('base64');
+  const readReviewer=async()=>({receipt,principalId:reviewerPrincipalId,
+    authenticatedReceiptId:receipt.receiptId,signatureBase64});
+  const trust={publicKeyPem:publicKey.export({type:'spki',format:'pem'}).toString(),
+    reviewerPrincipalId,now:()=>signedAt,maxReceiptAgeMs:300000};
+  const review=createPinnedNativeQaReview({...f.ports,readReviewer},trust);
+  expect(await review('produce',f.dispatch as any,f.view))
+    .toMatchObject({accepted:true,artifactDigest:receipt.artifactDigest});
+  const forged=createPinnedNativeQaReview({...f.ports,readReviewer:async()=>
+    ({...await readReviewer(),signatureBase64:'A'.repeat(88)})},trust);
+  expect(await forged('produce',f.dispatch as any,f.view)).toBeNull();
  });
  it('declines unauthenticated reviewer even with perfect-looking QA receipt',async()=>{
   const f=await prepared();f.deny();
