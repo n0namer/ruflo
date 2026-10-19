@@ -64,11 +64,11 @@ known_test_state:
   focused_vitest: "40/40 PASS on 2026-10-19: actual Ruflo enforce-policy receipts, scoped authorization, CLI/MCP, async admission, replay and cancel; no Codex E2E"
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   stock_codex_jsonl_binding: "21/21 PASS on 2026-10-19 across CodexExecutor, stock Codex JSONL binding and CodexMissionPort; mocked subprocess"
-  full_missions: "123 PASS, 3 opt-in live tests skipped, exit0 on 2026-10-19; includes ready-cycle 4/4, physical-auto-refill 1/1 and Windows crash/replay. Separately 2 real gpt-6-luna Missions terminal PASS; same-Mission 2 AI tasks still RED."
+  full_missions: "127 PASS, 4 opt-in live tests skipped, exit0 on 2026-10-19. Includes journal-authenticated no-redispatch recovery, missing QA evidence recovery, verifying->terminal restart, complete current-plan digest, SIGKILL writer recovery; no production independent QA."
   real_codex_e2e: "TWO SEPARATE real gpt-6-luna Missions completed: msn_52ac76735bbfadad21da7b6b (PID281872, checksum QA), msn_aa04a4f137331fed6ba817ab (PID302048, JS sumFinite tested by independent QA PID293804, 10 checks), Native completed rev6. Both live tests 1/1 PASS. Same-Mission two-real-task stress RED second exit1."
-  native_terminal_refill: "Physical-process fixture: 2 Node workers (stock Codex JSONL), 2 separate QA checker subprocesses, stock Mission terminal/readback/refill PASS; not a real Codex LLM run"
+  native_terminal_refill: "Native once/refill mock physical two-task terminal PASS; 3 fail-closed crash fences recovered by original journal source, no duplicate dispatch. Same-Mission two real AI worker refill RED second provider 429, not an accepted terminal."
   recent_candidate_commits: ["8c2ebed2e", "9870e8dae", "b1aa90c5d", "79a2e2a96"]
-  native_mvp_acceptance: "PARTIAL REAL E2E: 2 distinct gpt-6-luna Missions completed (text artifact + executable sumFinite JS). Second used bounded NativeReadyCycle and separate functional QA (10 assertions), PASS. Two real tasks in SAME Mission and production independent QA/daemon still NOT ACCEPTED; CrewSync SERVER_DONE=0."
+  native_mvp_acceptance: "PARTIAL REAL E2E: 2 separate gpt-6-luna Missions completed. Same-Mission two-real-task refill RED: make real worker exit0 + separate QA 10/10, dependent review real worker exit1; Codex session confirms 429 Too Many Requests. Correctly failed closed, no terminal. Recovery P1 fixed, production QA/daemon still unaccepted; SERVER_DONE=0."
   latest_server_done_this_work: 0
 next_critical_path: "m2-mvp-01-trusted-admission -> m2-mvp-02-frontier-once-journal -> m2-mvp-03-real-codex"
 out_of_scope: "GO Core V2, new planner/runner/store, UI, model routing, mass parallelism, deploy, Telegram"
