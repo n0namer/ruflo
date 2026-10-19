@@ -61,7 +61,7 @@ minimal_mvp_work:
 
 qa_gate: "reuse existing non-superseded r8/r9 independent QA task keys; source SHA change invalidates prior QA"
 known_test_state:
-  focused_vitest: "31/31 PASS on 2026-10-19, CLI/MCP/native-host plus service/admission; synthetic authority only"
+  focused_vitest: "35/35 PASS on 2026-10-19: async admission, revocation fence, CLI/MCP parity, replay and cancel; synthetic authority only"
   once_dispatch_mock: "8/8 PASS on 2026-10-19 prior execution"
   full_missions: "80 PASS, 1 FAIL, 1 suite load failure from partial workspace dependencies; NOT GREEN"
   real_codex_e2e: "NOT_PROVEN"
