@@ -247,3 +247,8 @@
 - GREEN: native-qa-request.ts now rejects containment in either direction, preserving inbox/signer ACL separation without changing MissionStore or review authority.
 - Fresh serial Native Mission suite: 160 PASS, 7 opt-in SKIPPED, 0 FAIL, exit 0. This is functional regression only, not independently installed production QA.
 - CrewSync readback: 22 OPEN, 3 DONE, 0 CLAIMED, fully paged; no new SERVER_DONE. A55 non-admin, QA accounts/key absent.
+
+## 2026-10-20 16:16 — source reconciliation and cross-repo verification
+- Rechecked clean Native HEAD 4cc55fc9b and Factory HEAD 2824cef on A55. Full CrewSync paginated goals: 22 OPEN / 3 DONE / 0 CLAIMED, no authoritative DONE added.
+- Fresh cross-repo test with RUFLO_M2_FACTORY_CHECKOUT set to the isolated Factory worktree: native-factory-driver.test.ts **5/5 PASS, exit 0**. Includes original MissionStore, stock Factory PID-fenced resident and three SAFE READY cycles; callbacks are test doubles, not installed production QA.
+- No new production signer, privileged installation or physical production Codex E2E is claimed. Next admission gate remains separate Windows QA identity + effective ACL proof + pinning and readback.

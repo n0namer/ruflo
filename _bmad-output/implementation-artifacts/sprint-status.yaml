@@ -89,3 +89,11 @@ qa_path_containment_20261020:
   native_regression: '160 PASS / 7 SKIPPED / 0 FAIL / exit 0'
   production_qa_accept: false
   crewsync_done_this_batch: 0
+
+reconcile_crossrepo_20261020_1616:
+  crew_sync_goals: '22 OPEN / 3 DONE / 0 CLAIMED; full pagination completed'
+  native_git: '4cc55fc9b clean before batch'
+  factory_git: '2824cef clean before batch'
+  cross_repo_native_factory: '5 PASS / 0 FAIL / exit 0; real MissionStore + stock Factory service; test callbacks not production Codex/QA'
+  prod_qa_installed: 'not established'
+  server_done_added: 0
