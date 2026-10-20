@@ -97,3 +97,16 @@ reconcile_crossrepo_20261020_1616:
   cross_repo_native_factory: '5 PASS / 0 FAIL / exit 0; real MissionStore + stock Factory service; test callbacks not production Codex/QA'
   prod_qa_installed: 'not established'
   server_done_added: 0
+
+qa_live_windows_service_20261020:
+  installed: true
+  runner_state: Running
+  signer_state: Running
+  signer_key_acl: 'SYSTEM/Admins/Signer only; unprivileged read denied'
+  source: 'A55 admin Task Scheduler, ACL readback and signed receipt canary'
+  real_model_review: true
+  signed_canary_verified: true
+  canary_artifact_sha256: '2915d1006ee05586d0a21cf7edf399ecbd9458bd3bde29ef8a2a101f6f63de97'
+  production_native_mission_accept: false
+  crew_sync_server_done_this_batch: 0
+  next: 'Integrate trusted resident Native Mission with protected QA service; two real Codex tasks and restart/replay; QA and CrewSync reducer/readback'
