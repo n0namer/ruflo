@@ -50,7 +50,12 @@ export function createRequestedPinnedNativeQaReview(
        dispatch.status!=='completed'||dispatch.exitCode!==0||
        !view?.record||view.record.missionId!==dispatch.missionId||
        view.record.state!=='running')return null;
+    // Source must be from the trusted Git/source port, never from Codex stdout.
+    let sourceDigest: string | null;
+    try { sourceDigest = await ports.readSourceDigest(); } catch { return null; }
+    if (!sourceDigest || !/^sha256:[a-f0-9]{64}$/.test(sourceDigest)) return null;
     const request={
+      sourceDigest,
       missionId:dispatch.missionId,invocationId:dispatch.invocationId,taskId,
       workspaceRoot:ports.projectRoot,
       planRevision:view.record.plan.revision,
