@@ -83,3 +83,9 @@ qa_production_security_batch_20261020:
   production_qa_accept: false
   crewsync_server_done_this_batch: 0
   next: "Isolated Mission workspace -> admin ACL/identity security QA -> installed independent reviewer -> trusted resident E2E -> restart/replay -> original CrewSync task readback SERVER_DONE"
+
+qa_path_containment_20261020:
+  test: 'native-qa-request-source.test.ts: nested roots RED -> GREEN'
+  native_regression: '160 PASS / 7 SKIPPED / 0 FAIL / exit 0'
+  production_qa_accept: false
+  crewsync_done_this_batch: 0

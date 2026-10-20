@@ -37,6 +37,14 @@ const view = {
   record:{missionId,state:'running',plan:{revision:3},acceptance:{criteriaDigest:sha('b')}},
 };
 describe('QA request source digest bound to the stock Mission',()=>{
+  it('rejects nested inbox and signed spool roots to preserve separate ACL ownership',()=>{
+    const nested=join(inbox,'signed');
+    mkdirSync(nested,{recursive:true});
+    const ports={projectRoot:project,workerPrincipalId:'codex-worker',readStockOutcome:async()=>null,readArtifactDigest:async()=>null,readSourceDigest:async()=>sha('a')};
+    const publicKeyPem='-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAuoZyk1OvYVaJHhI2WIO/Gkn39NAKe23XiO6pDfRmbxY=\n-----END PUBLIC KEY-----';
+    const trust={publicKeyPem,reviewerPrincipalId:'external-reviewer',now:()=>Date.now()};
+    expect(()=>createRequestedPinnedNativeQaReview(ports as any,trust,{inboxRoot:inbox,spoolRoot:nested})).toThrow();
+  });
   it('emits exact authoritative SHA in immutable external QA request',async()=>{
     const r=review(sha('a'));
     expect(await r('make',dispatch as any,view as any)).toBeNull();

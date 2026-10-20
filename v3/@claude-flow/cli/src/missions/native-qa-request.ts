@@ -39,7 +39,7 @@ export function createRequestedPinnedNativeQaReview(
   const inbox=canonical(options.inboxRoot);
   const spool=canonical(options.spoolRoot);
   if(isUnder(project,inbox)||isUnder(inbox,project)||isUnder(project,spool)||isUnder(spool,project)||
-     inbox===spool)throw new TypeError('QA transport cannot overlap worker workspace');
+     isUnder(inbox,spool)||isUnder(spool,inbox))throw new TypeError('QA transport roots must be disjoint from worker and each other');
   const timeout=options.timeoutMs??90000,poll=options.pollMs??500;
   if(!Number.isSafeInteger(timeout)||timeout<500||timeout>300000||
      !Number.isSafeInteger(poll)||poll<25||poll>5000)throw new RangeError('QA poll bounded');

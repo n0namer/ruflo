@@ -241,3 +241,9 @@
 - Real QA service deployment remains **BLOCKED_ADMIN_UAC_AND_RUNTIME_HARDENING**: no separate Windows identities, no effective Windows ACL negative probes, no production signer key; installer was NEVER invoked elevated. Staged QA tests use mocked model verdicts. The local model endpoint smoke is not independent production security QA. Factory-wide regression/production E2E, post-restart service and CrewSync SERVER_DONE not demonstrated by this batch.
 - CrewSync read-only `note get ruflo-upstream-dev:m2-native-mvp-critical-path-20261019` found the canonical note (updated 2026-10-20 10:56:02Z); `task show ruflo-upstream-dev:m2-r7c:reducer:goal` returned existing task, no write/claim/complete done. No new authoritative server DONE claimed.
 - Next: isolate clean Mission evidence workspace; independently validate ACL and deployment rollback under administrator approval without moving private key into Codex workspace; enroll pinned public key, run real resident Codex+QA, restart/replay and accepted CrewSync reducer with exact task/attempt readback. NO GO Core V2.
+
+## 2026-10-20 QA path containment repair
+- RED: new regression demonstrated nested QA signed spool inside inbox was accepted; new test failed 1/4 as expected.
+- GREEN: native-qa-request.ts now rejects containment in either direction, preserving inbox/signer ACL separation without changing MissionStore or review authority.
+- Fresh serial Native Mission suite: 160 PASS, 7 opt-in SKIPPED, 0 FAIL, exit 0. This is functional regression only, not independently installed production QA.
+- CrewSync readback: 22 OPEN, 3 DONE, 0 CLAIMED, fully paged; no new SERVER_DONE. A55 non-admin, QA accounts/key absent.
