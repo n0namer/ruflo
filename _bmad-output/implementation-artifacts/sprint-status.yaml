@@ -16,7 +16,7 @@ go_core_v2_enabled: false
 crew_sync_snapshot:
   prefix: "ruflo-upstream-dev:m2-r7c/r8/r9"
   scope: "non-superseded parent goals, not stage subkeys"
-  open: 21
+  open: 22
   done: 3
   new_server_done_this_reconcile: 0
   warning: "Existing three DONE are bounded QA results, not native M2 E2E."
