@@ -73,3 +73,13 @@ known_test_state:
   latest_server_done_this_work: 0
 next_critical_path: "USER WINDOWS ADMIN ACTION REQUIRED: approve UAC/elevated bin/install-native-m2-qa.ps1 to create dedicated QA runner+signer local accounts, protected key and task scheduler jobs. UAC canceled on 2026-10-20; NO installation occurred. Then verify ACL/user identities/receipt signing, enroll public SPKI in trusted resident host, perform actual production Mission+QA+restart and CrewSync SERVER_DONE. No bypass or fake acceptance."
 out_of_scope: "GO Core V2, new planner/runner/store, UI, model routing, mass parallelism, deploy, Telegram"
+
+qa_production_security_batch_20261020:
+  factory_commits: ["4c7e04e", "e548c98", "2824cef"]
+  factory_focused_tests: "30 PASS / 0 FAIL / 0 SKIPPED / exit 0 (native-m2-qa-installer, native-m2-qa-worker, factory-native-m2-resident)"
+  native_mission_regression: "159 PASS / 0 FAIL / 7 opt-in SKIPPED / exit 0; pre-existing Native code unchanged"
+  reviewer_model_endpoint: "gpt-6.1-sol local /v1/responses status=completed; strict 3-check JSON, not production signer"
+  install_status: "NOT_INSTALLED; current Windows session non-admin; UAC approval and separate OS-identity ACL proof required"
+  production_qa_accept: false
+  crewsync_server_done_this_batch: 0
+  next: "Isolated Mission workspace -> admin ACL/identity security QA -> installed independent reviewer -> trusted resident E2E -> restart/replay -> original CrewSync task readback SERVER_DONE"
