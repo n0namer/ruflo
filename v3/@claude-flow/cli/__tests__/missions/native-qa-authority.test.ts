@@ -1,5 +1,5 @@
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -9,6 +9,7 @@ import { ExecutionLeaseStore } from '../../src/missions/execution-lease.js';
 import { ExecutionInvocationJournal } from '../../src/missions/execution-invocation-journal.js';
 import { createNativeAuthorizedQaReview } from '../../src/missions/native-qa-authority.js';
 import { createPinnedNativeQaReview } from '../../src/missions/native-qa-attestation.js';
+import { createRequestedPinnedNativeQaReview } from '../../src/missions/native-qa-request.js';
 import { INDEPENDENT_QA_SCHEMA, STOCK_OUTCOME_SCHEMA } from '../../src/missions/execution-quality.js';
 import { plan } from './helpers.js';
 const hash = (text:string) => 'sha256:'+createHash('sha256').update(text).digest('hex');
@@ -138,6 +139,52 @@ describe('Native trusted independent QA readback (never CLI-supplied)',()=>{
   const f=await prepared();
   expect(await createNativeAuthorizedQaReview({...f.ports,workerPrincipalId:'another-worker'})
     ('produce',f.dispatch as any,f.view)).toBeNull();
+ });
+ it('publishes one immutable QA request and waits for an external signed receipt',async()=>{
+  const f=await prepared();
+  const folder=mkdtempSync(join(tmpdir(),'ruflo-qa-exchange-'));
+  const inbox=join(folder,'inbox'),spool=join(folder,'signed');
+  mkdirSync(inbox);mkdirSync(spool);
+  const keypair=generateKeyPairSync('ed25519');
+  const principal='external-code-reviewer';
+  const trust={publicKeyPem:keypair.publicKey.export({type:'spki',format:'pem'}).toString(),
+    reviewerPrincipalId:principal,now:()=>Date.parse('2026-10-20T00:02:00.000Z')};
+  const options={inboxRoot:inbox,spoolRoot:spool,timeoutMs:2200,pollMs:30};
+  try {
+    const produce=createRequestedPinnedNativeQaReview(f.ports,trust,options);
+    const file=join(inbox,f.view.record.missionId+'--inv-produce.request.json');
+    let requestBytes='';
+    const publisher=setTimeout(()=>{
+      try {
+        requestBytes=readFileSync(file,'utf8');
+        const receipt=f.qa;
+        const canonical=JSON.stringify([
+          'ruflo.m2.qa-attestation/v1',principal,receipt.receiptId,
+          receipt.schema,receipt.receiptId,receipt.missionId,receipt.executionId,
+          receipt.planRevision,receipt.criteriaDigest,receipt.artifactDigest,
+          receipt.verdict,receipt.producer.kind,receipt.producer.qaRunId,
+          receipt.evidenceRef,receipt.issuedAt,
+        ]);
+        const signatureBase64=sign(null,Buffer.from(canonical),keypair.privateKey).toString('base64');
+        const target=join(spool,receipt.missionId);
+        mkdirSync(target);
+        writeFileSync(join(target,'inv-produce.signed.json'),JSON.stringify({
+          receipt,principalId:principal,authenticatedReceiptId:receipt.receiptId,signatureBase64,
+        }));
+      }catch{}
+    },90);
+    const result=await produce('produce',f.dispatch as any,f.view);
+    clearTimeout(publisher);
+    expect(JSON.parse(requestBytes)).toMatchObject({missionId:f.view.record.missionId,
+      taskId:'produce',invocationId:'inv-produce',
+      planRevision:f.view.record.plan.revision});
+    expect(result).toMatchObject({accepted:true,artifactDigest:f.qa.artifactDigest});
+    // Mutating the existing request must not silently replace its authority.
+    writeFileSync(file,'{"malicious":true}');
+    const rejected=await produce('produce',f.dispatch as any,f.view);
+    expect(rejected).toBeNull();
+    expect(readFileSync(file,'utf8')).toContain('malicious');
+  }finally {rmSync(folder,{recursive:true,force:true,maxRetries:5,retryDelay:70})}
  });
  it('declines source drift without journal mutation or new dispatch',async()=>{
   const f=await prepared();f.driftSource();
