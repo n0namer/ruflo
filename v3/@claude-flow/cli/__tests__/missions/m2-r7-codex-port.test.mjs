@@ -1,0 +1,481 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
+import { registerHooks } from 'node:module';
+import { PassThrough } from 'node:stream';
+import test from 'node:test';
+
+const missions = new URL('../../src/missions/', import.meta.url);
+const aliases = new Map(['execution-dispatch-binding', 'execution-effect-guard'].map((name) => [
+  new URL(`${name}.js`, missions).href,
+  new URL(`${name}.ts`, missions).href,
+]));
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const resolved = new URL(specifier, context.parentURL ?? import.meta.url).href;
+    return aliases.has(resolved)
+      ? { url: aliases.get(resolved), shortCircuit: true }
+      : nextResolve(specifier, context);
+  },
+});
+const { CodexMissionPort, codexPortInputDigest } = await import(new URL('execution-m2-r7-codex-port.ts', missions));
+const { CodexExecutor } = await import(new URL('codex-executor.ts', missions));
+const digest = (value) => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+
+function fixture() {
+  const dispatch = {
+    prompt: 'Implement the authorized bounded task.',
+    invocation: {
+      missionId: 'mission', taskId: 'task', invocationId: 'invocation', threadId: 'thread',
+      missionEpoch: 7, planDigest: digest('plan'),
+    },
+    credential: {
+      missionId: 'mission', taskId: 'task', invocationId: 'invocation', threadId: 'thread',
+      ownerId: 'owner', sessionId: 'session', authorizationRef: 'decision',
+      planDigest: digest('plan'), credential: 'test-only-not-a-real-credential',
+    },
+    lease: { missionId: 'mission', ownerId: 'owner', generation: '7' },
+  };
+  const intent = {
+    missionId: 'mission', taskId: 'task', invocationId: 'invocation', planRevision: 3,
+    leaseGeneration: '7', ownerId: 'owner', sessionId: 'session', policyRef: 'policy',
+    policyDigest: digest('policy'), sourceDigest: digest('source'), inputDigest: codexPortInputDigest(dispatch),
+    authority: { decisionRef: 'decision', policyDigest: digest('policy') },
+  };
+  const effect = {
+    effectId: 'invocation',
+    permission: { granted: true, authenticated: true, capability: 'codex.execute', authorizationRef: 'decision' },
+    scope: { root: '/workspace', resource: '/workspace/task' },
+    fence: { missionId: 'mission', leaseId: 'lease', generation: '7', revision: 3 },
+  };
+  const request = { dispatch, intent, effect };
+  const state = {
+    receipt: null, calls: 0, prepares: 0, marks: 0, leaseChecks: 0,
+    credential: true, invocation: true, provenance: true, epoch: 7,
+    source: intent.sourceDigest, live: structuredClone(effect), resultChange: null,
+    beforeRun: null, afterRun: null, prepareError: false, markError: false,
+  };
+  const result = () => {
+    const admission = {
+      missionId: 'mission', taskId: 'task', leaseEpoch: 7,
+      authorizationRef: 'decision', planDigest: digest('plan'),
+    };
+    const value = {
+      outcome: 'completed', pid: 4321, exitCode: 0, signal: null, stdout: '', stderr: '',
+      events: [
+        { raw: '', line: 1, value: { type: 'thread.started', thread_id: 'thread' } },
+        { raw: '', line: 2, value: {
+          type: 'dispatch.receipt', status: 'completed', missionId: 'mission', taskId: 'task',
+          invocationId: 'invocation', threadId: 'thread', pid: 4321, sourceDigest: intent.sourceDigest,
+        } },
+      ],
+      invalidJsonlLines: [], durationMs: 1, admission,
+      settlement: 'observation-required', terminationConfirmed: true,
+    };
+    state.resultChange?.(value);
+    return value;
+  };
+  const options = {
+    dispatch: {
+      executor: { async run() {
+        state.calls += 1;
+        await state.beforeRun?.();
+        const value = result();
+        await state.afterRun?.();
+        return value;
+      } },
+      leaseStore: { async assertCurrent() { state.leaseChecks += 1; } },
+      verifier: {
+        verifyCredential: async () => state.credential,
+        verifyInvocation: async () => state.invocation,
+        verifyPhysicalReceipt: async () => state.provenance,
+        readMissionEpoch: async () => state.epoch,
+      },
+    },
+    journal: {
+      async prepare(received) {
+        state.prepares += 1;
+        if (state.prepareError) throw new Error('prepare unavailable');
+        state.receipt ??= { ...structuredClone(received), status: 'prepared', preparedAt: '2026-10-15T00:00:00.000Z' };
+        return structuredClone(state.receipt);
+      },
+      async markDispatched(received, dispatchRef) {
+        state.marks += 1;
+        if (state.markError) throw new Error('dispatch persistence unavailable');
+        if (state.receipt.status === 'prepared') state.receipt = {
+          ...state.receipt, status: 'dispatched', dispatchRef, dispatchedAt: '2026-10-15T00:00:01.000Z',
+        };
+        return structuredClone(state.receipt);
+      },
+    },
+    readEffect: async () => structuredClone(state.live),
+    readSourceDigest: async () => state.source,
+  };
+  return { request, state, options, result, port: new CodexMissionPort(options) };
+}
+
+function noTerminal(observation) {
+  assert.equal(observation.settlement, 'observation-required');
+  assert.ok(!['DONE', 'GREEN', 'succeeded', 'accepted'].includes(observation.status));
+  assert.equal(observation.acceptance, undefined);
+}
+
+test('valid physical evidence is an observation; journal remains dispatched pending independent QA', async () => {
+  const harness = fixture();
+  const observation = await harness.port.dispatch(harness.request);
+  assert.equal(observation.status, 'observed');
+  assert.equal(observation.receipt.status, 'completed');
+  assert.equal(observation.receipt.pid, 4321);
+  assert.equal(harness.state.calls, 1);
+  assert.equal(harness.state.receipt.status, 'dispatched');
+  // Binding and port may independently recheck a lease after awaited authority calls.
+  assert.ok(harness.state.leaseChecks >= 2);
+  noTerminal(observation);
+});
+
+test('composes actual stock CodexExecutor without a new runner or shell', async () => {
+  const harness = fixture();
+  const stock = new CodexExecutor({ spawn(command, args, options) {
+    harness.state.calls += 1;
+    assert.equal(command, 'codex');
+    assert.deepEqual(args.slice(0, 3), ['exec', '--json', '--skip-git-repo-check']);
+    assert.equal(options.shell, false);
+    const child = new EventEmitter();
+    child.pid = 4321;
+    child.stdin = new PassThrough();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.kill = () => true;
+    setImmediate(() => {
+      child.stdout.write(harness.result().events.map(({ value }) => JSON.stringify(value)).join('\n'));
+      child.emit('close', 0, null);
+    });
+    return child;
+  } });
+  harness.options.dispatch.executor = stock;
+  const observed = await harness.port.dispatch(harness.request);
+  assert.equal(observed.status, 'observed');
+  assert.equal(harness.state.calls, 1);
+  noTerminal(observed);
+});
+
+for (const [name, mutate] of [
+  ['source SHA malformed', ({ request }) => { request.intent.sourceDigest = 'not-a-sha'; }],
+  ['source SHA differs', ({ state }) => { state.source = digest('different'); }],
+  ['prompt/input digest differs', ({ request }) => { request.dispatch.prompt = 'different'; }],
+  ['intent session differs', ({ request }) => { request.intent.sessionId = 'different'; }],
+  ['intent owner differs', ({ request }) => { request.intent.ownerId = 'different'; }],
+  ['authority decision differs', ({ request }) => { request.intent.authority.decisionRef = 'different'; }],
+  ['policy SHA differs', ({ request }) => { request.intent.authority.policyDigest = digest('different'); }],
+  ['effect generation differs', ({ request }) => { request.effect.fence.generation = '8'; }],
+  ['effect revision differs', ({ request }) => { request.effect.fence.revision = 4; }],
+  ['effect identity differs', ({ request }) => { request.effect.effectId = 'other'; }],
+  ['permission unauthenticated', ({ request }) => { request.effect.permission.authenticated = false; }],
+  ['scope escapes root', ({ request }) => { request.effect.scope.resource = '/outside'; }],
+]) {
+  test(`rejects ${name} before journal mutation or process`, async () => {
+    const harness = fixture();
+    mutate(harness);
+    const observed = await harness.port.dispatch(harness.request);
+    assert.equal(observed.status, 'rejected');
+    assert.equal(harness.state.prepares, 0);
+    assert.equal(harness.state.calls, 0);
+    noTerminal(observed);
+  });
+}
+
+for (const [name, mutate] of [
+  ['credential denied', ({ state }) => { state.credential = false; }],
+  ['invocation denied', ({ state }) => { state.invocation = false; }],
+  ['stale mission epoch', ({ state }) => { state.epoch = 8; }],
+  ['lease check fails', ({ options }) => { options.dispatch.leaseStore.assertCurrent = async () => { throw new Error('stale'); }; }],
+  ['credential thread mismatch', ({ request }) => { request.dispatch.credential.threadId = 'foreign'; }],
+]) {
+  test(`stock binding rejects ${name} without spawning`, async () => {
+    const harness = fixture();
+    mutate(harness);
+    assert.equal((await harness.port.dispatch(harness.request)).status, 'rejected');
+    assert.equal(harness.state.calls, 0);
+  });
+}
+
+for (const [name, mutate] of [
+  ['permission revoked', (state) => { state.live.permission.granted = false; }],
+  ['fence changed', (state) => { state.live.fence.generation = '8'; }],
+  ['revision changed', (state) => { state.live.fence.revision = 4; }],
+  ['scope changed', (state) => { state.live.scope.resource = '/workspace/other'; }],
+  ['source changed', (state) => { state.source = digest('changed'); }],
+]) {
+  test(`rechecks ${name} after async credential verification before actual effect`, async () => {
+    const harness = fixture();
+    harness.options.dispatch.verifier.verifyCredential = async () => { mutate(harness.state); return true; };
+    const observed = await harness.port.dispatch(harness.request);
+    assert.equal(observed.status, 'unknown');
+    assert.equal(harness.state.calls, 0);
+    assert.equal(harness.state.receipt.status, 'dispatched');
+    assert.equal((await harness.port.dispatch(harness.request)).status === 'observed', false);
+    assert.equal(harness.state.calls, 0);
+  });
+}
+
+for (const [name, mutate] of [
+  ['PID missing', (value) => { value.pid = null; }],
+  ['PID zero', (value) => { value.pid = 0; }],
+  ['PID fractional', (value) => { value.pid = 3.5; }],
+  ['physical PID differs', (value) => { value.events[1].value.pid = 999; }],
+  ['physical source SHA differs', (value) => { value.events[1].value.sourceDigest = digest('foreign'); }],
+  ['actual thread differs', (value) => { value.events[0].value.thread_id = 'foreign'; }],
+  ['thread evidence absent', (value) => { value.events.shift(); }],
+  ['conflicting thread evidence', (value) => { value.events.push({ value: { type: 'thread.started', thread_id: 'foreign' } }); }],
+  ['exit zero only', (value) => { value.events = []; }],
+  ['turn.completed only', (value) => { value.events = [{ value: { type: 'turn.completed' } }]; }],
+  ['nonzero exit with completed claim', (value) => { value.exitCode = 1; }],
+  ['admission mismatch', (value) => { value.admission.planDigest = digest('foreign'); }],
+]) {
+  test(`rejects synthetic completion: ${name}`, async () => {
+    const harness = fixture();
+    harness.state.resultChange = mutate;
+    const observed = await harness.port.dispatch(harness.request);
+    assert.equal(observed.status, 'rejected');
+    assert.equal(harness.state.calls, 1);
+    assert.equal(harness.state.receipt.status, 'dispatched');
+    noTerminal(observed);
+  });
+}
+
+test('matching stdout is not authority when independent provenance verifier denies', async () => {
+  const harness = fixture();
+  harness.state.provenance = false;
+  const observed = await harness.port.dispatch(harness.request);
+  assert.equal(observed.status, 'rejected');
+  assert.equal(observed.receipt.reason, 'physical-receipt-untrusted');
+});
+
+for (const [name, mutate] of [
+  ['timeout with confirmed termination', (value) => { value.outcome = 'timed-out'; }],
+  ['unconfirmed termination', (value) => { value.terminationConfirmed = false; }],
+]) {
+  test(`${name} remains unknown and cannot be automatically replayed`, async () => {
+    const harness = fixture();
+    harness.state.resultChange = mutate;
+    const observed = await harness.port.dispatch(harness.request);
+    assert.equal(observed.status, 'unknown');
+    assert.equal(observed.receipt.reason, 'ambiguous-timeout');
+    assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+    assert.equal(harness.state.calls, 1);
+    noTerminal(observed);
+  });
+}
+
+test('adapter throws after potential spawn: unknown, never retried', async () => {
+  const harness = fixture();
+  harness.state.beforeRun = async () => { throw new Error('lost response'); };
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+  assert.equal(harness.state.calls, 1);
+});
+
+test('process failure is only an observation, not journal or Mission failure settlement', async () => {
+  const harness = fixture();
+  harness.state.resultChange = (value) => { value.outcome = 'failed'; value.exitCode = 1; };
+  const observed = await harness.port.dispatch(harness.request);
+  assert.equal(observed.status, 'observed');
+  assert.equal(observed.receipt.status, 'failed');
+  assert.equal(harness.state.receipt.status, 'dispatched');
+  noTerminal(observed);
+});
+
+for (const [name, mutate] of [
+  ['source SHA', (state) => { state.source = digest('drift'); }],
+  ['epoch', (state) => { state.epoch = 8; }],
+  ['permission', (state) => { state.live.permission.granted = false; }],
+]) {
+  test(`post-process ${name} drift downgrades completion to unknown`, async () => {
+    const harness = fixture();
+    harness.state.afterRun = async () => mutate(harness.state);
+    assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+    assert.equal(harness.state.calls, 1);
+  });
+}
+
+for (const status of ['dispatched', 'succeeded', 'failed']) {
+  test(`restart with ${status} journal receipt never spawns or synthesizes GREEN`, async () => {
+    const harness = fixture();
+    harness.state.receipt = { ...structuredClone(harness.request.intent), status, preparedAt: 'timestamp' };
+    const observed = await harness.port.dispatch(harness.request);
+    assert.equal(observed.status, 'unknown');
+    assert.equal(harness.state.calls, 0);
+    noTerminal(observed);
+  });
+}
+
+test('prepared-only crash can resume with one durable dispatch claim', async () => {
+  const harness = fixture();
+  harness.state.receipt = { ...structuredClone(harness.request.intent), status: 'prepared', preparedAt: 'timestamp' };
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'observed');
+  assert.equal(harness.state.calls, 1);
+});
+
+test('concurrent port instances use stock journal dispatchRef as an atomic winner fence', async () => {
+  const harness = fixture();
+  const other = new CodexMissionPort(harness.options);
+  const observations = await Promise.all([
+    harness.port.dispatch(harness.request), other.dispatch(harness.request),
+  ]);
+  assert.deepEqual(observations.map(({ status }) => status).sort(), ['observed', 'unknown']);
+  assert.equal(harness.state.calls, 1);
+});
+
+for (const field of ['prepareError', 'markError']) {
+  test(`journal ${field} fails closed before process effect`, async () => {
+    const harness = fixture();
+    harness.state[field] = true;
+    assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+    assert.equal(harness.state.calls, 0);
+  });
+}
+
+test('journal receipt bound to another source fails closed', async () => {
+  const harness = fixture();
+  harness.state.receipt = {
+    ...structuredClone(harness.request.intent), status: 'prepared', preparedAt: 'timestamp', sourceDigest: digest('foreign'),
+  };
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+  assert.equal(harness.state.calls, 0);
+});
+
+test('caller mutation during async verification cannot change the snapshotted invocation or prompt', async () => {
+  const harness = fixture();
+  harness.options.dispatch.verifier.verifyCredential = async () => {
+    harness.request.dispatch.prompt = 'mutated';
+    harness.request.dispatch.invocation.threadId = 'foreign';
+    return true;
+  };
+  harness.options.dispatch.executor.run = async (request) => {
+    harness.state.calls += 1;
+    assert.equal(request.prompt, 'Implement the authorized bounded task.');
+    return harness.result();
+  };
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'observed');
+});
+
+test('prototype-based trusted verifiers preserve methods and receiver binding', async () => {
+  const harness = fixture();
+  class TrustedVerifier {
+    constructor() { this.calls = []; }
+    verifyCredential() { this.calls.push('credential'); return true; }
+    verifyInvocation() { this.calls.push('invocation'); return true; }
+    verifyPhysicalReceipt() { this.calls.push('physical'); return true; }
+    readMissionEpoch() { this.calls.push('epoch'); return 7; }
+  }
+  const verifier = new TrustedVerifier();
+  harness.options.dispatch.verifier = verifier;
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'observed');
+  assert.deepEqual(verifier.calls, ['credential', 'invocation', 'epoch', 'physical', 'epoch']);
+});
+
+test('provenance verifier outage remains unknown and is not replayed', async () => {
+  const harness = fixture();
+  harness.options.dispatch.verifier.verifyPhysicalReceipt = async () => { throw new Error('unavailable'); };
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+  assert.equal(harness.state.calls, 1);
+});
+
+test('source authority unavailable before prepare rejects without journal or process effects', async () => {
+  const harness = fixture();
+  harness.options.readSourceDigest = async () => { throw new Error('unavailable'); };
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'rejected');
+  assert.equal(harness.state.prepares, 0);
+  assert.equal(harness.state.calls, 0);
+});
+
+test('journal returns a foreign dispatch winner: no process effect', async () => {
+  const harness = fixture();
+  harness.options.journal.markDispatched = async () => ({
+    ...structuredClone(harness.request.intent), status: 'dispatched', dispatchRef: 'other-winner',
+  });
+  assert.equal((await harness.port.dispatch(harness.request)).status, 'unknown');
+  assert.equal(harness.state.calls, 0);
+});
+
+const resultPath = new URL('../../../../docs/validation/m2-r7-codex-binding-result.json', import.meta.url);
+const writeScope = [
+  'v3/@claude-flow/cli/src/missions/execution-m2-r7-codex-port.ts',
+  'v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs',
+  'v3/docs/validation/m2-r7-codex-binding-result.json',
+];
+function validateWorkerReport(report) {
+  assert.deepEqual(Object.keys(report).sort(), [
+    'schema', 'task_key', 'project', 'attempt_id', 'session_id', 'producer', 'outcome',
+    'summary', 'functional_delta', 'checks', 'changed_files', 'evidence_refs',
+    'remaining', 'questions', 'next_action', 'acceptance', 'recorded_at',
+  ].sort());
+  assert.equal(report.schema, 'go-core.worker-result.v1');
+  assert.equal(report.task_key, 'ruflo-upstream-dev:m2-r7c:codex-binding:goal');
+  assert.equal(report.project, 'ruflo-upstream-dev');
+  assert.equal(report.attempt_id, 'attempt-b6a92fda-7255-4b97-a098-5c12f2e27e31');
+  assert.equal(report.session_id, 'manual-20261015-ruflo-upstream-native-m2-hyper20-r7c-goal');
+  assert.deepEqual(report.producer, { thread_id: null, role: 'implementer' });
+  assert.equal(report.outcome, 'CANDIDATE');
+  assert.deepEqual(report.acceptance, { level: 'UNACCEPTED' });
+  for (const field of ['summary', 'next_action', 'recorded_at']) assert.ok(typeof report[field] === 'string' && report[field].length > 0);
+  assert.equal(new Date(report.recorded_at).toISOString(), report.recorded_at);
+  for (const field of ['functional_delta', 'changed_files', 'evidence_refs', 'remaining', 'questions']) {
+    assert.ok(Array.isArray(report[field]));
+    assert.ok(report[field].every((value) => typeof value === 'string'));
+  }
+  assert.deepEqual([...report.changed_files].sort(), [...writeScope].sort());
+  assert.ok(report.checks.length > 0);
+  for (const check of report.checks) {
+    assert.deepEqual(Object.keys(check).sort(), ['evidence_ref', 'name', 'status']);
+    assert.ok(['PASS', 'FAIL', 'BLOCKED'].includes(check.status));
+    assert.ok(typeof check.name === 'string' && check.name.length > 0);
+    assert.ok(typeof check.evidence_ref === 'string' && check.evidence_ref.length > 0);
+  }
+  for (const [name, path] of [
+    ['source', new URL('execution-m2-r7-codex-port.ts', missions)],
+    ['test', new URL(import.meta.url)],
+  ]) {
+    const currentDigest = digest(readFileSync(path));
+    assert.ok(report.evidence_refs.some((entry) => entry.includes(`${name}_sha256=${currentDigest}`)));
+  }
+}
+
+test('exact original-task worker-result schema, scope and source digest preflight', () => {
+  validateWorkerReport(JSON.parse(readFileSync(resultPath, 'utf8')));
+});
+
+test('worker-result preflight rejects identity, scope, acceptance and schema substitutions', () => {
+  const original = JSON.parse(readFileSync(resultPath, 'utf8'));
+  for (const mutate of [
+    (report) => { report.task_key = 'other'; },
+    (report) => { report.attempt_id = 'other'; },
+    (report) => { report.session_id = 'other'; },
+    (report) => { report.producer.thread_id = 'invented'; },
+    (report) => { report.producer.role = 'reviewer'; },
+    (report) => { report.acceptance.level = 'ACCEPTED_GREEN'; },
+    (report) => { report.changed_files.push('foreign.ts'); },
+    (report) => { report.checks[0].status = 'GREEN'; },
+    (report) => { report.extra = true; },
+    (report) => { report.evidence_refs = []; },
+  ]) {
+    const invalid = structuredClone(original);
+    mutate(invalid);
+    assert.throws(() => validateWorkerReport(invalid));
+  }
+});
+
+test('fresh source and test SHA256 receipts', () => {
+  for (const name of [
+    'execution-m2-r7-codex-port.ts', 'codex-executor.ts', 'execution-dispatch-binding.ts',
+    'execution-effect-guard.ts', 'execution-invocation-journal.ts',
+  ]) {
+    console.log(`SOURCE_SHA256 ${name} ${digest(readFileSync(new URL(name, missions)))}`);
+  }
+  console.log(`TEST_SHA256 m2-r7-codex-port.test.mjs ${digest(readFileSync(new URL(import.meta.url)))}`);
+  console.log(`RESULT_SHA256 m2-r7-codex-binding-result.json ${digest(readFileSync(resultPath))}`);
+  console.log(`RUNNER_COMMAND ${JSON.stringify([process.execPath, ...process.execArgv, ...process.argv.slice(1)])}`);
+  console.log(`EVIDENCE_RECORDED_AT ${new Date().toISOString()}`);
+});

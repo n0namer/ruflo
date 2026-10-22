@@ -1,0 +1,148 @@
+{
+  "schema": "ruflo-native-m2.qa-source-receipts.v1",
+  "as_of": "2026-10-15",
+  "project": "ruflo-upstream-dev",
+  "status": "UNACCEPTED",
+  "records": [
+    {
+      "key": "ruflo-upstream-dev:m2-r7c:frontier:goal",
+      "producer_thread": "01a13f31-14e5-7102-960f-18e84fffe645",
+      "source_attempt": "attempt-c6975b5a-7741-4078-a882-2693b8dba9a9",
+      "process_receipt": "C:\\Users\\NIKITA\\.mnnz\\go-core-waves\\ruflo-upstream-dev\\20261015-ruflo-upstream-native-m2-hyper20-r7c\\process-receipts\\4f3bb3f3dc2e7864d7bc8d0a05021ee799826cdf81969ba28e1a55f610d2fb2a.json",
+      "published_note": {
+        "scope": "go-core.worker-result.v1",
+        "key": "ruflo-upstream-dev:m2-r7c:frontier:goal:attempt:attempt-c6975b5a-7741-4078-a882-2693b8dba9a9"
+      },
+      "transport": "VERIFIED_NOT_ACCEPTED",
+      "worker": "WORKER_COMPLETED",
+      "artifacts": [
+        {
+          "path": "v3/@claude-flow/cli/src/missions/execution-m2-r7-frontier-port.ts",
+          "sha256": "a6e48156e4b2a8ac4922d644a2f57176804efdac2e9d7c4d17cc29bd3dd9aece"
+        },
+        {
+          "path": "v3/@claude-flow/cli/__tests__/missions/m2-r7-frontier-port.test.mjs",
+          "sha256": "f83749424dd137c1a236fbb1b0a150e6e9cb691cc0136131f7d01f65f2b9a00e"
+        },
+        {
+          "path": "v3/docs/validation/m2-r7-frontier-result.json",
+          "sha256": "72b2b7189b0db80dd6b59d05c0eefa4114048fc0798879e17afb669497d35779"
+        }
+      ],
+      "revision": "574b98ef005dc61b6fab60fe19e9a82e937a196a",
+      "note_status": true
+    },
+    {
+      "key": "ruflo-upstream-dev:m2-r7c:budget:goal",
+      "producer_thread": "01a13f31-2674-7383-b694-d908721da522",
+      "source_attempt": "attempt-05979161-9f2d-4fbd-8579-e3241c320d6b",
+      "process_receipt": "C:\\Users\\NIKITA\\.mnnz\\go-core-waves\\ruflo-upstream-dev\\20261015-ruflo-upstream-native-m2-hyper20-r7c\\process-receipts\\612d0ec8316018e001e867ac2a4ad560ce12554089aced20026744980c4ec4e7.json",
+      "published_note": {
+        "scope": "go-core.worker-result.v1",
+        "key": "ruflo-upstream-dev:m2-r7c:budget:goal:attempt:attempt-05979161-9f2d-4fbd-8579-e3241c320d6b"
+      },
+      "transport": "VERIFIED_NOT_ACCEPTED",
+      "worker": "WORKER_COMPLETED",
+      "artifacts": [
+        {
+          "path": "v3/@claude-flow/cli/src/missions/execution-m2-r7-budget-port.ts",
+          "sha256": "312baba74a973d8c00a5b1c3c88f10f1e0ae8bd7393126e8476b87d2bfdada58"
+        },
+        {
+          "path": "v3/@claude-flow/cli/__tests__/missions/m2-r7-budget-port.test.mjs",
+          "sha256": "08c76fe26ee85077f1539a6733e822603d8199b43e5ff21e59cf3ec7167a0666"
+        },
+        {
+          "path": "v3/docs/validation/m2-r7-budget-result.json",
+          "sha256": "8c1262b6fd3956bcf60fb5f49965e006da8f6782d9a1213141524d60ddd45b5d"
+        }
+      ],
+      "revision": "574b98ef005dc61b6fab60fe19e9a82e937a196a",
+      "note_status": true
+    },
+    {
+      "key": "ruflo-upstream-dev:m2-r7c:codex-binding:goal",
+      "producer_thread": "01a13f31-1d9d-7fe1-be54-10ea62504df8",
+      "source_attempt": "attempt-b6a92fda-7255-4b97-a098-5c12f2e27e31",
+      "process_receipt": "C:\\Users\\NIKITA\\.mnnz\\go-core-waves\\ruflo-upstream-dev\\20261015-ruflo-upstream-native-m2-hyper20-r7c\\process-receipts\\7b05be3c81ce08aac16e27272de86934752cb93deb7b850534ce19c561464360.json",
+      "published_note": {
+        "scope": "go-core.worker-result.v1",
+        "key": "ruflo-upstream-dev:m2-r7c:codex-binding:goal:attempt:attempt-b6a92fda-7255-4b97-a098-5c12f2e27e31"
+      },
+      "transport": "VERIFIED_NOT_ACCEPTED",
+      "worker": "WORKER_COMPLETED",
+      "artifacts": [
+        {
+          "path": "v3/@claude-flow/cli/src/missions/execution-m2-r7-codex-port.ts",
+          "sha256": "82286d5f703f7a4537e07af77723bc7a11a815b94e2d61fc69797f857cc1e402"
+        },
+        {
+          "path": "v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs",
+          "sha256": "24b22d144384e4038b9260e8fdc34161e75ed423df2a35c643cc3ab0a90e2857"
+        },
+        {
+          "path": "v3/docs/validation/m2-r7-codex-binding-result.json",
+          "sha256": "22a054d6a4671a903177cc06ad7b5e3159e9ef1b6e144794a87f8436b4f544a2"
+        }
+      ],
+      "revision": "574b98ef005dc61b6fab60fe19e9a82e937a196a",
+      "note_status": true
+    },
+    {
+      "key": "ruflo-upstream-dev:m2-r7c:recovery:goal",
+      "producer_thread": "01a13f31-30bd-7d30-903b-ec5f444665bd",
+      "source_attempt": "attempt-e7a4a44e-897a-49f6-81fb-f269011fd751",
+      "process_receipt": "C:\\Users\\NIKITA\\.mnnz\\go-core-waves\\ruflo-upstream-dev\\20261015-ruflo-upstream-native-m2-hyper20-r7c\\process-receipts\\18b4ea55f8c08e010b0fa8b51457df9527fb3c6f22858be4351c3b8c017f85a9.json",
+      "published_note": {
+        "scope": "go-core.worker-result.v1",
+        "key": "ruflo-upstream-dev:m2-r7c:recovery:goal:attempt:attempt-e7a4a44e-897a-49f6-81fb-f269011fd751"
+      },
+      "transport": "VERIFIED_NOT_ACCEPTED",
+      "worker": "WORKER_COMPLETED",
+      "artifacts": [
+        {
+          "path": "v3/@claude-flow/cli/src/missions/execution-m2-r7-recovery-port.ts",
+          "sha256": "6e7293f2e276b56b7d8e67c746d845c51e4455c32cebda30afa443d6f6aec7eb"
+        },
+        {
+          "path": "v3/@claude-flow/cli/__tests__/missions/m2-r7-recovery-port.test.mjs",
+          "sha256": "baee898d1092e876c38d3b60241e0f644c6398572999783a9db575ae0f6d68c4"
+        },
+        {
+          "path": "v3/docs/validation/m2-r7-recovery-result.json",
+          "sha256": "53a4c9ca4b73393ad988f6f58f07439ddbd3415dcf0fc693ce5c23bd7d820fec"
+        }
+      ],
+      "revision": "574b98ef005dc61b6fab60fe19e9a82e937a196a",
+      "note_status": true
+    },
+    {
+      "key": "ruflo-upstream-dev:m2-r7c:cli-mcp:goal",
+      "producer_thread": "01a13f36-31ef-7231-b5b9-deaf44fa1818",
+      "source_attempt": "attempt-1afd5abe-5cb7-4bb4-b2ce-017d61eda95d",
+      "process_receipt": "C:\\Users\\NIKITA\\.mnnz\\go-core-waves\\ruflo-upstream-dev\\20261015-m2-r7c-refill-cli-mcp-goal\\process-receipts\\8e07ef95be5538014045b74dbe462cddc6f8498b3a72c63f325e24a18a444e34.json",
+      "published_note": {
+        "scope": "go-core.worker-result.v1",
+        "key": "ruflo-upstream-dev:m2-r7c:cli-mcp:goal:attempt:attempt-1afd5abe-5cb7-4bb4-b2ce-017d61eda95d"
+      },
+      "transport": "VERIFIED_NOT_ACCEPTED",
+      "worker": "WORKER_COMPLETED",
+      "artifacts": [
+        {
+          "path": "v3/@claude-flow/cli/src/missions/execution-m2-r7-entrypoint-audit.ts",
+          "sha256": "bec8daf6d302bcc1668c76675b1574d134543eb88db89cb23222652bfcd6ec31"
+        },
+        {
+          "path": "v3/@claude-flow/cli/__tests__/missions/m2-r7-entrypoint-audit.test.mjs",
+          "sha256": "71626d45463f4acc4e3b8b83a9ebdf0523ecec32ba4c469770f2af12f60b0174"
+        },
+        {
+          "path": "v3/docs/validation/m2-r7-cli-mcp-result.json",
+          "sha256": "e156f1d0792421fa2f32639f38c8c28c456d65c947b31384cfa0df4e34556c18"
+        }
+      ],
+      "revision": "574b98ef005dc61b6fab60fe19e9a82e937a196a",
+      "note_status": true
+    }
+  ]
+}

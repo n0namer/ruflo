@@ -1,0 +1,56 @@
+{
+  "schema": "go-core.worker-result.v1",
+  "task_key": "ruflo-upstream-dev:m2-r8:qa-codex-binding:goal",
+  "project": "ruflo-upstream-dev",
+  "attempt_id": "attempt-366924f2-f355-4ed6-8c8e-6ea3f42c5826",
+  "session_id": "manual-20261015-ruflo-native-m2-r8-independent-qa-five-goal",
+  "producer": { "thread_id": null, "role": "implementer" },
+  "outcome": "REPAIR_REQUIRED",
+  "summary": "Independent verdict REPAIR_REQUIRED. Primary suite freshly passed 60/60, exit 0. Final independent reviewer suite passed 21/24 with three reproduced failures, exit 1; exact report preflight passed. Initial run was 19/22, exit 1. Findings: an unknown executor outcome becomes observed, and lease/source revocation during awaited live-effect verification still permits one executor call. Producer remains UNACCEPTED. Direct live server note readback is BLOCKED; only the supplied receipt snapshot was verified.",
+  "functional_delta": [
+    "Added an independent Node reviewer suite and this evidence artifact only; no producer source, primary tests, live Mission state, claims, leases or terminal state were modified.",
+    "C4/signature boundary: existing CodexMissionPort.dispatch(CodexPortRequest): Promise<CodexPortObservation> remains unchanged. Reviewer fixtures implement its existing executor, lease, provenance and journal interfaces, never launch a physical Codex process, and never settle an outcome. Mission remains the only controller.",
+    "Fresh producer report, source and primary-test bytes match all three hashes in m2-r8-producer-receipts.json. Snapshot names producer thread 01a13f31-1d9d-7fe1-be54-10ea62504df8 and the exact expected publication note. This is file-backed receipt evidence, not a live CrewSync query or acceptance.",
+    "Independent controls cover positive observation, replay prevention, expired admission lease, wrong Mission/credential, source mismatch, provenance denial, exit-zero-only and turn.completed false completion, timeout, project/report substitutions, stale artifact SHA and missing transport note.",
+    "Finding QA-CODEX-01: CodexDispatchBinding.dispatch classifies any non-completed, non-timeout outcome as failed; CodexMissionPort.dispatch promotes failed receipts to observed without physical verification. An unrecognized-provider-outcome with null PID and no events becomes observed/process-observed-independent-qa-required, contrary to ADR-406 I11 unknown-state handling. No terminal GREEN was produced; this is an observation-classification defect.",
+    "Finding QA-CODEX-02: leaseStore.assertCurrent runs before the binding awaits the port executor wrapper's readSourceDigest/readEffect. Revocation during readEffect is not checked again before executor.run. The reviewer proves calls=1 despite an expired lease; only the post-process check downgrades to unknown.",
+    "Finding QA-CODEX-03: authorityCurrent reads source before awaiting readEffect. Source changes during that await are not rechecked before executor.run. The reviewer proves calls=1 under the stale source; the post-process source check returns unknown too late to prevent the side effect.",
+    "Scope-specific workflow: BMad Help/catalog and existing M2 scope establish bounded implementation/independent-QA gate, ADR Proposed and candidate UNACCEPTED. Quick Dev steps 1-4/template, systematic-debugging, edge-case-hunter and verification-before-completion were loaded. Configuration scripts, extra spec files, approval checkpoints, git/graph discovery and subagent review are unavailable or prohibited by this exact manifest; no such execution or independent review of this QA artifact is claimed.",
+    "Self-review tightened artifact-set validation to reject duplicate substitutions and added exact worker-result schema/binding/digest preflight. Failing product regressions retain their expected safety assertions; they are not skipped, weakened or converted to green. Repairs belong to the original producer thread under separate source-write authority."
+  ],
+  "checks": [
+    { "name": "Fresh primary positive/negative source tests", "status": "PASS", "evidence_ref": "go_wave.run_project_tests(v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs), node:test, 2026-10-15T11:33:20.137Z: tests=60 pass=60 fail=0 skipped=0 exit_code=0" },
+    { "name": "Independent adversarial reviewer suite", "status": "FAIL", "evidence_ref": "go_wave.run_project_tests(v3/@claude-flow/cli/__tests__/missions/m2-r7-qa-codex-binding.test.mjs), node:test, final 2026-10-15T11:39:49.764Z: tests=24 pass=21 fail=3 skipped=0 exit_code=1; schema/digest preflight PASS; QA_UNKNOWN_OUTCOME status=observed; QA_AUTHORITY_GAP lease/source calls=1 status=unknown. Initial immutable receipt 2026-10-15T11:36:31.412Z: tests=22 pass=19 fail=3 exit_code=1" },
+    { "name": "Fresh producer artifact SHA and receipt snapshot identity", "status": "PASS", "evidence_ref": "Reviewer test 1 recomputes all three producer artifact hashes; independent receipt-boundary negative tests reject wrong project/task, stale SHA, false GREEN, unknown outcome, wrong thread and missing note" },
+    { "name": "Live original producer VERIFIED server note readback", "status": "BLOCKED", "evidence_ref": "Available scoped go_wave tools expose file reads and worker publication only, no server note query. m2-r8-producer-receipts.json records note_status=true and transport=VERIFIED_NOT_ACCEPTED for the exact key; this snapshot cannot establish fresh live server authority" },
+    { "name": "Producer repair and final green regression", "status": "BLOCKED", "evidence_ref": "Producer source and original tests are read-only in this QA manifest. Three safety failures are retained for same-thread sticky repair, not edited around" },
+    { "name": "Native E2E, full build, git cleanliness and terminal acceptance", "status": "BLOCKED", "evidence_ref": "No live dispatch/state mutation, shell, graph, full build or acceptance authority; current accepted-state artifact has native_m2_e2e_proven=false and state=UNACCEPTED" }
+  ],
+  "changed_files": [
+    "v3/@claude-flow/cli/__tests__/missions/m2-r7-qa-codex-binding.test.mjs",
+    "v3/docs/validation/m2-r7-qa-codex-binding-result.json"
+  ],
+  "evidence_refs": [
+    "qa_test_sha256=62b8c9e6897e0bfaf4c69c3b0598ee1a12cb3c81e5b7569f41d3f0ed14669009",
+    "producer_source_sha256=82286d5f703f7a4537e07af77723bc7a11a815b94e2d61fc69797f857cc1e402",
+    "producer_test_sha256=24b22d144384e4038b9260e8fdc34161e75ed423df2a35c643cc3ab0a90e2857",
+    "producer_report_sha256=22a054d6a4671a903177cc06ad7b5e3159e9ef1b6e144794a87f8436b4f544a2",
+    "producer_receipts_sha256=ddb30807fd33b85ca48335c2703a594fd43b9790c57e78335bcef9e24119fe1d",
+    "execution-dispatch-binding.ts sha256=79094039fb718c0b0dcdb477081a8fb0e074edd323248e158e75ce9948af84a8; execution-effect-guard.ts sha256=7e7d9c6756eaa8e12eb18bb85c99ceefe04f2d96a559139e917b187c5b10557a",
+    "execution-invocation-journal.ts sha256=5a6da0ce2631d3d001941d2b84531ac99ee2a0f07de420b2ca2e7e9212663052; codex-executor.ts sha256=d3cefb4e151819445c6ab027ef12867e1e2540024bc819729ff1dfa0f3a392a4",
+    "Producer publication snapshot key: ruflo-upstream-dev:m2-r7c:codex-binding:goal:attempt:attempt-b6a92fda-7255-4b97-a098-5c12f2e27e31; producer_thread=01a13f31-1d9d-7fe1-be54-10ea62504df8; transport=VERIFIED_NOT_ACCEPTED; live query not performed",
+    "Requested commands: node --experimental-strip-types --test v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs; node --experimental-strip-types --test v3/@claude-flow/cli/__tests__/missions/m2-r7-qa-codex-binding.test.mjs. Actual engine: authorized go_wave.run_project_tests, node:test; no shell invocation claimed",
+    "ADR-406 sha256=4dd5c40e35a43bc2d5796866c2ef3ac1d33d16184e9c3d54fc596d06f2150e4a; accepted-state sha256=ad906a8480ee3fa75ed3b9cd92809506fb0da4be4cc6dc0fe82f6d492c69871e; trusted launcher git=574b98ef005dc61b6fab60fe19e9a82e937a196a, not independently read Git state"
+  ],
+  "remaining": [
+    "REPAIR_REQUIRED: resume original producer thread 01a13f31-1d9d-7fe1-be54-10ea62504df8 with source-write authority; reject unknown outcomes before promotion and close the awaited authority gap at the executor effect boundary. Preserve supported failed-process observations, replay fencing and UNACCEPTED settlement semantics.",
+    "Rerun both authorized validation files after producer repair; all three product regressions must pass before any ACCEPT_CANDIDATE verdict.",
+    "Coordinator must provide fresh read-only CrewSync server note content/status for the exact original producer key, with thread and artifact identity binding. A receipt snapshot or this worker publication cannot substitute.",
+    "Native E2E, real Codex physical provenance and durable on-disk journal integration remain unverified. Injected test adapters are not live-provider or distributed durability proof.",
+    "No whole-worktree cleanliness, independent acceptance of this reviewer artifact, terminal authorization or DONE is claimed. Original producer report remains untouched and UNACCEPTED."
+  ],
+  "questions": [],
+  "next_action": "Coordinator: request same-thread sticky producer repair for QA-CODEX-01/02/03, supply fresh original server publication readback, then schedule independent retest against new immutable source/artifact hashes; do not accept or settle the Mission from this report.",
+  "acceptance": { "level": "UNACCEPTED" },
+  "recorded_at": "2026-10-15T11:39:49.764Z"
+}

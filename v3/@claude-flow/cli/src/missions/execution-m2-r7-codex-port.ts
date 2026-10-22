@@ -1,0 +1,191 @@
+import { createHash, randomUUID } from 'node:crypto';
+import { CodexDispatchBinding } from './execution-dispatch-binding.js';
+import type {
+  CodexDispatchBindingOptions,
+  CodexDispatchReceipt,
+  CodexDispatchRequest,
+} from './execution-dispatch-binding.js';
+import { authorizeEffect, preflightEffect } from './execution-effect-guard.js';
+import type { EffectGuardInput, EffectPreflight } from './execution-effect-guard.js';
+import type {
+  ExecutionInvocationJournal,
+  InvocationIntent,
+  InvocationReceipt,
+} from './execution-invocation-journal.js';
+
+export interface CodexPortRequest {
+  readonly dispatch: CodexDispatchRequest;
+  readonly intent: InvocationIntent;
+  readonly effect: EffectGuardInput;
+}
+
+export interface CodexPortOptions {
+  readonly dispatch: CodexDispatchBindingOptions;
+  readonly journal: Pick<ExecutionInvocationJournal, 'prepare' | 'markDispatched'>;
+  readonly readEffect: () => EffectGuardInput | Promise<EffectGuardInput>;
+  readonly readSourceDigest: () => string | Promise<string>;
+}
+
+export interface CodexPortObservation {
+  readonly status: 'observed' | 'rejected' | 'unknown';
+  readonly reason: string;
+  readonly invocationId: string;
+  readonly sourceDigest: string;
+  readonly receipt?: CodexDispatchReceipt;
+  readonly settlement: 'observation-required';
+}
+
+const DIGEST = /^sha256:[a-f0-9]{64}$/u;
+
+export function codexPortInputDigest(request: CodexDispatchRequest): string {
+  const { invocation, credential } = request;
+  const input = JSON.stringify({
+    prompt: request.prompt,
+    missionId: invocation.missionId,
+    taskId: invocation.taskId,
+    invocationId: invocation.invocationId,
+    threadId: invocation.threadId,
+    missionEpoch: invocation.missionEpoch,
+    planDigest: invocation.planDigest,
+    ownerId: credential.ownerId,
+    sessionId: credential.sessionId,
+    authorizationRef: credential.authorizationRef,
+    timeoutMs: request.timeoutMs ?? null,
+  });
+  return `sha256:${createHash('sha256').update(input).digest('hex')}`;
+}
+
+function freeze<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    Object.values(value).forEach(freeze);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function bound(request: CodexPortRequest): boolean {
+  const { dispatch, intent, effect } = request;
+  const { invocation, credential, lease } = dispatch;
+  return DIGEST.test(intent.sourceDigest)
+    && DIGEST.test(intent.policyDigest)
+    && intent.authority.policyDigest === intent.policyDigest
+    && intent.authority.decisionRef === credential.authorizationRef
+    && intent.inputDigest === codexPortInputDigest(dispatch)
+    && intent.missionId === invocation.missionId
+    && intent.taskId === invocation.taskId
+    && intent.invocationId === invocation.invocationId
+    && intent.ownerId === credential.ownerId
+    && intent.sessionId === credential.sessionId
+    && intent.leaseGeneration === String(invocation.missionEpoch)
+    && intent.leaseGeneration === lease.generation
+    && effect.effectId === invocation.invocationId
+    && effect.permission.authorizationRef === credential.authorizationRef
+    && effect.fence.missionId === invocation.missionId
+    && effect.fence.generation === intent.leaseGeneration
+    && effect.fence.revision === intent.planRevision;
+}
+
+function sameIntent(receipt: InvocationReceipt, intent: InvocationIntent): boolean {
+  return Object.entries(intent).every(([key, value]) => key === 'authority'
+    ? receipt.authority?.decisionRef === intent.authority.decisionRef
+      && receipt.authority?.policyDigest === intent.authority.policyDigest
+    : receipt[key as keyof InvocationReceipt] === value);
+}
+
+export class CodexMissionPort {
+  private readonly options: CodexPortOptions;
+
+  constructor(options: CodexPortOptions) {
+    this.options = options;
+  }
+
+  async dispatch(input: CodexPortRequest): Promise<CodexPortObservation> {
+    const request = freeze(structuredClone(input));
+    const observation = (
+      status: CodexPortObservation['status'],
+      reason: string,
+      receipt?: CodexDispatchReceipt,
+    ): CodexPortObservation => ({
+      status, reason,
+      invocationId: request.intent.invocationId,
+      sourceDigest: request.intent.sourceDigest,
+      ...(receipt ? { receipt } : {}),
+      settlement: 'observation-required',
+    });
+    let preflight: EffectPreflight;
+    try {
+      if (!bound(request)) return observation('rejected', 'binding-mismatch');
+      const decision = preflightEffect(request.effect);
+      if ('authorized' in decision) return observation('rejected', 'effect-preflight-denied');
+      preflight = decision;
+      if (await this.options.readSourceDigest() !== request.intent.sourceDigest) {
+        return observation('rejected', 'source-mismatch');
+      }
+    } catch {
+      return observation('rejected', 'invalid-input-or-authority-unavailable');
+    }
+
+    try {
+      const prepared = await this.options.journal.prepare(request.intent);
+      if (!sameIntent(prepared, request.intent)) return observation('unknown', 'journal-binding-mismatch');
+      if (prepared.status !== 'prepared') return observation('unknown', 'reconciliation-required');
+      const dispatchRef = `codex-port:${randomUUID()}`;
+      const claimed = await this.options.journal.markDispatched(request.intent, dispatchRef);
+      if (!sameIntent(claimed, request.intent)
+        || claimed.status !== 'dispatched' || claimed.dispatchRef !== dispatchRef) {
+        return observation('unknown', 'reconciliation-required');
+      }
+
+      const authorityCurrent = async (): Promise<boolean> => {
+        const live = await this.options.readEffect();
+        if (!authorizeEffect(preflight, live).authorized) return false;
+        await leaseStore.assertCurrent(request.dispatch.lease);
+        return await this.options.readSourceDigest() === request.intent.sourceDigest;
+      };
+      const { executor, verifier, leaseStore } = this.options.dispatch;
+      const binding = new CodexDispatchBinding({
+        leaseStore,
+        verifier: {
+          verifyCredential: (credential) => verifier.verifyCredential(credential),
+          verifyInvocation: (invocation) => verifier.verifyInvocation(invocation),
+          readMissionEpoch: (missionId) => verifier.readMissionEpoch(missionId),
+          verifyPhysicalReceipt: async (result, dispatched) => {
+            if (!Number.isSafeInteger(result.pid) || result.pid! <= 0 || result.exitCode !== 0) return false;
+            const threadEvents = result.events.filter(({ value }) => value !== null
+              && typeof value === 'object' && (value as Record<string, unknown>).type === 'thread.started');
+            if (threadEvents.length !== 1
+              || (threadEvents[0].value as Record<string, unknown>).thread_id !== dispatched.invocation.threadId) return false;
+            const physical = result.events.some(({ value }) => {
+              if (!value || typeof value !== 'object') return false;
+              const event = value as Record<string, unknown>;
+              return event.type === 'dispatch.receipt' && event.status === 'completed'
+                && event.missionId === dispatched.invocation.missionId
+                && event.taskId === dispatched.invocation.taskId
+                && event.invocationId === dispatched.invocation.invocationId
+                && event.threadId === dispatched.invocation.threadId
+                && event.pid === result.pid && event.sourceDigest === request.intent.sourceDigest;
+            });
+            return physical && await verifier.verifyPhysicalReceipt(result, dispatched);
+          },
+        },
+        executor: {
+          run: async (executorRequest) => {
+            if (!(await authorityCurrent())) throw new Error('effect authority changed before dispatch');
+            return executor.run(executorRequest);
+          },
+        },
+      });
+      const receipt = await binding.dispatch(request.dispatch);
+      if (receipt.status === 'unknown') return observation('unknown', receipt.reason ?? 'reconciliation-required', receipt);
+      if (receipt.status === 'rejected') return observation('rejected', receipt.reason ?? 'dispatch-rejected', receipt);
+      if (receipt.status === 'failed' && (receipt.outcome !== 'failed' || !Number.isSafeInteger(receipt.pid) || receipt.pid <= 0)) return observation('unknown', 'unattributed-worker-outcome', receipt);
+      if (receipt.status !== 'completed' && receipt.status !== 'failed') return observation('unknown', 'unrecognized-worker-status', receipt);
+      await leaseStore.assertCurrent(request.dispatch.lease);
+      if (await verifier.readMissionEpoch(request.intent.missionId) !== request.dispatch.invocation.missionEpoch
+        || !(await authorityCurrent())) return observation('unknown', 'authority-changed-after-dispatch', receipt);
+      return observation('observed', 'process-observed-independent-qa-required', receipt);
+    } catch {
+      return observation('unknown', 'reconciliation-required');
+    }
+  }
+}

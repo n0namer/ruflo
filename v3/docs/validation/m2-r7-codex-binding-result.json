@@ -1,0 +1,59 @@
+{
+  "schema": "go-core.worker-result.v1",
+  "task_key": "ruflo-upstream-dev:m2-r7c:codex-binding:goal",
+  "project": "ruflo-upstream-dev",
+  "attempt_id": "attempt-b6a92fda-7255-4b97-a098-5c12f2e27e31",
+  "session_id": "manual-20261015-ruflo-upstream-native-m2-hyper20-r7c-goal",
+  "producer": { "thread_id": null, "role": "implementer" },
+  "outcome": "CANDIDATE",
+  "summary": "Implemented a scoped, observation-only Codex Mission port composing existing dispatch, executor, effect guard and invocation journal interfaces. The post-repair functional suite executed 58 tests with 58 PASS, zero failures and exit 0. Native M2 E2E and acceptance remain unproven.",
+  "functional_delta": [
+    "C4 context: the stock Mission DAG remains the sole controller. Native admission supplies authenticated READY/credential verifiers, current source digest and effect snapshots; independent QA and the coordinator retain terminal authority. No competing task store, runner, scheduler, lease administration or CLI was added.",
+    "C4 component boundary: CodexMissionPort.dispatch(CodexPortRequest): Promise<CodexPortObservation> composes CodexDispatchBinding.dispatch, its existing Pick<CodexExecutor, run>, preflightEffect/authorizeEffect and Pick<ExecutionInvocationJournal, prepare | markDispatched>. codexPortInputDigest(CodexDispatchRequest): string binds prompt, invocation, principal/session, authorization reference, plan digest, epoch and timeout without hashing credentials into an exposed request body.",
+    "Ownership: new implementation, focused Node test and this result artifact are the only three changed files. Existing executor, binding, guard, journal, Mission index and BMad source of truth are read-only and preserved. Direct module import is the compatible interface; no barrel export was modified.",
+    "Bind journal intent to invocation, source SHA256, input SHA256, policy SHA256, owner/session, decision reference, generation and plan revision. Snapshot and freeze request data before asynchronous verification to prevent caller mutation during dispatch.",
+    "Reuse the stock journal's atomic markDispatched dispatchRef winner semantics with a fresh unique reference: only the persisted winner may invoke the binding. Dispatched or completed receipts require reconciliation, never automatic replay. Prepared-only recovery may proceed once. The port deliberately never calls recordOutcome or settles a Mission.",
+    "Recheck live authenticated effect authorization and source identity immediately before the stock executor call; retain stock credential, invocation, lease and epoch checks. Recheck lease, epoch, effect and source after an otherwise observed result. Authority loss, ambiguous timeout, adapter/provenance failure or persistence uncertainty fail closed without terminal GREEN.",
+    "Require a positive integer PID, exactly one matching stock thread.started event, matching mission/task/invocation/thread/PID/source in dispatch.receipt, exit zero and the independent trusted physical provenance verifier before treating process completion as observed. Exit zero or turn.completed alone cannot become accepted evidence.",
+    "Systematic debugging RED/GREEN: a new prototype-based verifier regression reproduced 57 PASS / 1 FAIL / exit 1 because object spreading dropped prototype methods. Explicit forwarding preserves both methods and receiver binding; fresh retest produced 58 PASS / 0 FAIL / exit 0.",
+    "Focused coverage includes actual stock CodexExecutor code with an injected fake spawn, credential/invocation denial, stale lease/epoch, source and input mismatch, scope/revision/fence revocation across awaits, missing or conflicting thread/PID/receipt evidence, untrusted provenance, timeout/replay, crash-state recovery, concurrent port instances, journal failures, caller mutation and verifier compatibility. Fixture outcomes are not Native E2E authority.",
+    "BMad gate: v3/docs/validation/m2-r7-bmad-scope.md establishes bounded M2 implementation and UNACCEPTED pending independent QA; ADR-406 is Proposed. BMad Help, Quick Dev steps and templates, systematic-debugging, adversarial-general and verification-before-completion were loaded. Scope-specific instructions override unavailable skill scripts, new spec files, interactive checkpoints and subagent requirements; no independent review is claimed."
+  ],
+  "checks": [
+    { "name": "Focused positive, negative, recovery and compatibility behavior", "status": "PASS", "evidence_ref": "go_wave.run_project_tests(v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs), node:test, 2026-10-15T11:04:19.842Z: tests=58 pass=58 fail=0 skipped=0 exit_code=0" },
+    { "name": "Reproduced verifier regression and affected-only repair", "status": "PASS", "evidence_ref": "2026-10-15T11:03:11.355Z tests=58 pass=57 fail=1 exit_code=1; prototype verifier returned unknown instead of observed; 2026-10-15T11:04:19.842Z tests=58 pass=58 fail=0 exit_code=0 after explicit forwarding" },
+    { "name": "No synthetic terminal GREEN or automatic ambiguous replay", "status": "PASS", "evidence_ref": "Focused Node tests for exit-zero-only, turn.completed-only, untrusted provenance, ambiguous timeout, unconfirmed termination, dispatched/succeeded/failed replay, concurrent dispatchRef winner and journal remaining dispatched" },
+    { "name": "Fresh source and test digest binding", "status": "PASS", "evidence_ref": "SOURCE_SHA256 emitted by the authorized Node test engine; final source/test digests are retained in evidence_refs and checked again by publication preflight" },
+    { "name": "Live Native E2E, independent QA and authoritative terminal readback", "status": "BLOCKED", "evidence_ref": "No authority to dispatch live Native tasks, mutate leases or terminal state, run independent agents, or authorize acceptance; accepted-state artifact explicitly has native_m2_e2e_proven=false" },
+    { "name": "Full build, lint, git status/history and skill configuration scripts", "status": "BLOCKED", "evidence_ref": "Only exact scoped MCP reads/writes and the authorized Node test file are allowed; shell, config discovery, broader validation and graph navigation tools are unavailable or outside task authority" }
+  ],
+  "changed_files": [
+    "v3/@claude-flow/cli/src/missions/execution-m2-r7-codex-port.ts",
+    "v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs",
+    "v3/docs/validation/m2-r7-codex-binding-result.json"
+  ],
+  "evidence_refs": [
+    "v3/@claude-flow/cli/src/missions/execution-m2-r7-codex-port.ts source_sha256=sha256:82286d5f703f7a4537e07af77723bc7a11a815b94e2d61fc69797f857cc1e402",
+    "v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs test_sha256=sha256:24b22d144384e4038b9260e8fdc34161e75ed423df2a35c643cc3ab0a90e2857",
+    "Reviewed runtime dependencies at post-repair execution: codex-executor.ts sha256:d3cefb4e151819445c6ab027ef12867e1e2540024bc819729ff1dfa0f3a392a4; execution-dispatch-binding.ts sha256:79094039fb718c0b0dcdb477081a8fb0e074edd323248e158e75ce9948af84a8; execution-effect-guard.ts sha256:7e7d9c6756eaa8e12eb18bb85c99ceefe04f2d96a559139e917b187c5b10557a; execution-invocation-journal.ts sha256:5a6da0ce2631d3d001941d2b84531ac99ee2a0f07de420b2ca2e7e9212663052",
+    "v3/docs/adr/ADR-406-ruflo-mod-command-compatibility.md sha256:4dd5c40e35a43bc2d5796866c2ef3ac1d33d16184e9c3d54fc596d06f2150e4a; sections 9/10 define durable invocation and observation-vs-outcome boundaries",
+    "v3/docs/validation/m2-r7-bmad-scope.md; v3/docs/validation/m2-r7-current-accepted-state.json; v3/@claude-flow/cli/src/missions/index.ts read through authorized MCP",
+    "Trusted launcher baseline only, not independently re-read git status: git=574b98ef005dc61b6fab60fe19e9a82e937a196a manifest_sha256=e0a208ba1b5217489e68a967bad49488f6154aea519723c94f8b7b0574a5558a",
+    "Requested validation: node --experimental-strip-types --test v3/@claude-flow/cli/__tests__/missions/m2-r7-codex-port.test.mjs; actual execution through go_wave.run_project_tests with engine=node:test",
+    "Initial target reads returned ENOENT for the exact three authorized targets; creation was explicitly permitted. No denied test call or infrastructure retry occurred. Initial 54/54 pass, verifier RED 57/58, repaired functional pass 58/58 are distinct immutable tool receipts."
+  ],
+  "remaining": [
+    "Independent reviewer must run fresh scoped tests and review these exact source/test digests; coordinator reducer alone may authorize acceptance or server DONE. This report is CANDIDATE/UNACCEPTED.",
+    "Wire the direct-module port into a stock Native admission caller only under separate write authority. The read-only Mission index and existing runtime callers were not changed.",
+    "Trusted host must supply real authenticated READY/credential verification, canonical live effect snapshots, lease/epoch readback, source digest readback and independent physical receipt provenance. Callback fixtures and an authenticated boolean alone are not deployment authority.",
+    "Actual Codex CLI and a cryptographically or physically trusted dispatch.receipt producer were not launched. The stock executor adapter was exercised with a fake process; stock CLI output is not assumed to supply the custom receipt automatically.",
+    "Journal concurrency/restart cases exercise a contract-compatible in-memory adapter. The actual durable journal's file locking and storage/restart integration were source-reviewed but not executed because its dependency tree and runtime writes are outside this task scope.",
+    "The port intentionally leaves every dispatched attempt pending reconciliation/independent QA, including known process failure and pre-spawn denial after reservation. It never upgrades journal status or auto-retries an ambiguous invocation.",
+    "Full package typecheck/build/lint, public export integration, live process/PID provenance, installed-package compatibility and cross-process durability remain unverified. Node type stripping does not constitute a TypeScript build.",
+    "Only scoped source evidence was available: no live graph index, full AGENTS hierarchy discovery, git dirty-state inspection or independent skill-review agent was run. No whole-worktree cleanliness or Native E2E claim is made."
+  ],
+  "questions": [],
+  "next_action": "Independent QA should rerun the authorized focused Node file against the exact digests, inspect real journal/receipt integration under its own authority, then hand evidence to the coordinator reducer without treating transport verification as acceptance.",
+  "acceptance": { "level": "UNACCEPTED" },
+  "recorded_at": "2026-10-15T11:04:19.842Z"
+}
