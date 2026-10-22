@@ -1,0 +1,2 @@
+﻿{"installed":true,"runner":"DESKTOP-A55K2JN\\RufloM2QaRunner","signer":"DESKTOP-A55K2JN\\RufloM2QaSigner","keyProtected":true,"publicKeyPath":"C:\\ProgramData\\Ruflo\\M2QA\\public\\signer.public.pem","qaSpool":"C:\\ProgramData\\Ruflo\\M2QA\\signed","tasks":["RufloM2QARunner:Ready","RufloM2QASigner:Ready"]}
+INSTALL_SCRIPT_RETURNED

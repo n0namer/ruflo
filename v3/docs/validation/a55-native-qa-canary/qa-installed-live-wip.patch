@@ -1,0 +1,160 @@
+diff --git a/v3/@claude-flow/cli/__tests__/missions/native-factory-live-two-code.test.ts b/v3/@claude-flow/cli/__tests__/missions/native-factory-live-two-code.test.ts
+index 458203039..f864f8c90 100644
+--- a/v3/@claude-flow/cli/__tests__/missions/native-factory-live-two-code.test.ts
++++ b/v3/@claude-flow/cli/__tests__/missions/native-factory-live-two-code.test.ts
+@@ -5,9 +5,9 @@
+  * NOT yet authenticated production reviewer-service credentials.
+  */
+ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+-import { createHash } from 'node:crypto';
++import { createHash, randomUUID } from 'node:crypto';
+ import { execFileSync, spawn as nodeSpawn } from 'node:child_process';
+-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
++import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+ import { tmpdir } from 'node:os';
+ import { join, resolve } from 'node:path';
+ import { fileURLToPath } from 'node:url';
+@@ -21,6 +21,8 @@ import { CodexMissionPort, codexPortInputDigest } from '../../src/missions/execu
+ import { CodexExecutor } from '../../src/missions/codex-executor.js';
+ import { readyTaskIdsFromMission } from '../../src/missions/execution-frontier.js';
+ import { createNativeM2FactoryDriver } from '../../src/missions/native-factory-driver.js';
++import { createRequestedPinnedNativeQaReview } from '../../src/missions/native-qa-request.js';
++import { STOCK_OUTCOME_SCHEMA } from '../../src/missions/execution-quality.js';
+ import { pathToFileURL } from 'node:url';
+ import { setPolicyMode, upsertPolicyRule, loadPolicyState } from '../../src/services/policy-runtime.js';
+ 
+@@ -29,20 +31,29 @@ const codexBin = 'D:/npm-global/node_modules/@openai/codex/bin/codex.js';
+ const disabledMcp = ['ai-crew-sync-local','ruflo','node_repl','hostinger','hostinger-vps','coolify'];
+ const checker = fileURLToPath(new URL('./fixtures/independent-code-qa.mjs', import.meta.url));
+ let root: string;
++const installedQa = process.env.RUFLO_LIVE_INSTALLED_QA === '1';
++const protectedQaRoot = 'C:/ProgramData/Ruflo/M2QA';
+ const git = (...args: string[]) => execFileSync('git', ['-C', root, ...args], {
+   encoding: 'utf8', timeout: 7000, windowsHide: true, stdio: ['ignore','pipe','ignore'],
+ }).trim();
+ 
+ beforeEach(() => {
+-  root = mkdtempSync(join(tmpdir(), 'ruflo-physical-m2-'));
+-  git('init', '-q');
+-  writeFileSync(join(root, '.gitignore'), '.claude-flow/\n', 'utf8');
+-  git('add', '.gitignore');
+-  git('-c', 'user.name=Ruflo Fixture', '-c','user.email=qa@example.com','commit','-q','-m','root');
++  root = installedQa ? 'D:/Users/NIKITA/Documents/DEV/ruflo-native-m2-qa-canary'
++    : mkdtempSync(join(tmpdir(), 'ruflo-physical-m2-'));
++  if(!existsSync(join(root,'.git'))){
++    git('init','-q');
++    writeFileSync(join(root,'.gitignore'),installedQa?'.claude-flow/\nqa-*\n':'.claude-flow/\n','utf8');
++    git('add','.gitignore');
++    git('-c','user.name=Ruflo Fixture','-c','user.email=qa@example.com','commit','-q','-m','root');
++  }
++  if(installedQa){
++    const prior=join(root,'.claude-flow','probe-artifacts','make.mjs');
++    if(existsSync(prior))renameSync(prior,join(root,'.claude-flow','probe-artifacts','make.pre-live-'+Date.now()+'.mjs'));
++  }
+ });
+ afterEach(() => {
+   installNativeMissionHost(null);
+-  rmSync(root, { recursive: true, force: true });
++  if(!installedQa)rmSync(root,{recursive:true,force:true});
+ });
+ 
+ describe('REAL Codex coding through bounded NativeReadyCycle', () => {
+@@ -70,14 +81,15 @@ describe('REAL Codex coding through bounded NativeReadyCycle', () => {
+         if (type === 'evidence.recorded') {
+           const qa = outcomes.get('review');
+           if (!qa || qa.digest !== payload.artifactDigest || payload.verified !== true) return null;
+-          return { authorized: true as const, receiptRef: 'qa-process:' + qa.qaPid, independentQa: true as const };
++          return { authorized: true as const, receiptRef: installedQa ? 'signed-qa:'+signedReceipts.at(-1) : 'qa-process:' + qa.qaPid, independentQa: true as const };
+         }
+         if (type === 'acceptance.passed' && !outcomes.has('review')) return null;
+         return { authorized: true as const, receiptRef: 'fixture-native-verified:' + view.record.missionId };
+       },
+     });
+     const client = nativeMissionService(root, 'cli');
+-    const created = await client.create({ requestId: 'mission-create', objective: 'Real Codex independently tested sumFinite implementation' });
++    const requestNamespace = installedQa ? randomUUID() : 'fixture';
++    const created = await client.create({ requestId: 'mission-create-'+requestNamespace, objective: 'Real Codex independently tested sumFinite implementation' });
+     if (!created.ok) throw Error(created.message);
+     const missionId = created.data.missionId;
+     const tasks = ['make','review'].map((id, index) => ({
+@@ -91,10 +103,10 @@ describe('REAL Codex coding through bounded NativeReadyCycle', () => {
+         inputs: [], producer: 'independent-reviewer', independent: true, mandatory: true }],
+       budget: { currency: 'USD', ceilingMinor: 100 }, scope: { capabilities: ['fs.write'] },
+     };
+-    const planned = await client.plan({ requestId: 'mission-plan', missionId,
++    const planned = await client.plan({ requestId: 'mission-plan-'+requestNamespace, missionId,
+       expectedRevision: 1, plan });
+     if (!planned.ok) throw Error(planned.message);
+-    const admitted = await client.requestAction({ requestId: 'mission-admit', missionId,
++    const admitted = await client.requestAction({ requestId: 'mission-admit-'+requestNamespace, missionId,
+       expectedRevision: 2, action: 'admit' });
+     expect(admitted).toMatchObject({ ok: true, data: { state: 'queued', revision: 3 } });
+     expect(loadPolicyState(root).receipts.length).toBeGreaterThanOrEqual(2);
+@@ -115,10 +127,20 @@ describe('REAL Codex coding through bounded NativeReadyCycle', () => {
+     });
+     const physicalPids: number[] = [];
+     const qaPids: number[] = [];
++    const signedReceipts: string[] = [];
++    const stockOutcomes = new Map<string, any>();
+     const intents = new Map<string, any>();
+     let lastDispatch: { port: CodexMissionPort; input: Parameters<CodexMissionPort['dispatch']>[0] } | null = null;
+     const viewNow = () => store.loadView(missionId)!;
+     const readyNow = () => readyTaskIdsFromMission(viewNow());
++    const signedReview = installedQa ? createRequestedPinnedNativeQaReview({
++      projectRoot:root,workerPrincipalId:'test-native-owner',
++      readStockOutcome:async(_missionId,invocationId)=>stockOutcomes.get(invocationId)??null,
++      readArtifactDigest:async(taskId)=>digest(readFileSync(join(root,'.claude-flow','probe-artifacts',taskId+'.mjs'))),
++      readSourceDigest:async()=>digest(git('rev-parse','HEAD')),
++    },{publicKeyPem:readFileSync(join(protectedQaRoot,'public','signer.public.pem'),'utf8'),
++      reviewerPrincipalId:'ruflo-m2-qa-signer'},
++      {inboxRoot:join(protectedQaRoot,'inbox'),spoolRoot:join(protectedQaRoot,'signed'),timeoutMs:180_000,pollMs:400}) : null;
+     const residentPorts = {
+       projectRoot:root,runtime,executorId:'test-native-owner',
+       cycleId:'factory-owned-live-two-code',
+@@ -178,9 +200,25 @@ describe('REAL Codex coding through bounded NativeReadyCycle', () => {
+           processStatus:observation.receipt?.status,pid:observation.receipt?.pid,
+           thread:observation.receipt?.physicalThreadId,exitCode:observation.receipt?.exitCode}));
+         if(observation.receipt?.pid) physicalPids.push(observation.receipt.pid);
++        if(installedQa && observation.receipt?.status==='completed' && observation.receipt.exitCode===0){
++          const artifactDigest=digest(readFileSync(join(root,'.claude-flow','probe-artifacts',taskId+'.mjs')));
++          stockOutcomes.set(invocationId,{schema:STOCK_OUTCOME_SCHEMA,missionId,executionId:invocationId,
++            planRevision:view.record.plan.revision,criteriaDigest:view.record.acceptance.criteriaDigest,
++            artifactDigest,exitCode:0,status:'succeeded',observedAt:new Date().toISOString(),
++            provenance:{source:'stock-mission',missionId,executionId:invocationId,
++              planRevision:view.record.plan.revision,artifactDigest}});
++        }
+         return observation;
+       },
+       async review(taskId,receipt) {
++        if(signedReview){
++          const checked=await signedReview(taskId,receipt,viewNow());
++          if(!checked)return null;
++          signedReceipts.push(checked.evidenceId);
++          outcomes.set(taskId,{invocationId:receipt.invocationId,digest:checked.artifactDigest,
++            qaPid:0,workerPid:receipt.pid!});
++          return checked;
++        }
+         const artifact=join(root,'.claude-flow','probe-artifacts',taskId+'.mjs');
+         const proof=JSON.parse(execFileSync(process.execPath,[checker,artifact,taskId],
+           {cwd:root,encoding:'utf8',windowsHide:true,timeout:5000}).trim());
+@@ -198,7 +236,7 @@ describe('REAL Codex coding through bounded NativeReadyCycle', () => {
+         const intent=intents.get(taskId);
+         if(!intent||!outcomes.has(taskId))return false;
+         const committed=await journal.recordOutcome(intent,'succeeded',qa.artifactDigest,
+-          'qa-process:'+outcomes.get(taskId)!.qaPid);
++          installedQa?'signed-qa:'+qa.evidenceId:'qa-process:'+outcomes.get(taskId)!.qaPid);
+         return committed.status==='succeeded';
+       },
+     };
+@@ -217,7 +255,10 @@ describe('REAL Codex coding through bounded NativeReadyCycle', () => {
+       reviewerPids:qaPids}));
+     expect(cycle).toMatchObject({status:'NATIVE_MISSION_TERMINAL_READBACK',nativeState:'completed',performed:['make','review'],serverDone:false});
+     expect(new Set(physicalPids).size).toBe(2);
+-    expect(qaPids.every(pid => !physicalPids.includes(pid))).toBe(true);
++    if(installedQa){
++      expect(signedReceipts).toHaveLength(2);
++      for(const taskId of ['make','review'])expect(existsSync(join(protectedQaRoot,'signed',missionId,'inv-'+taskId+'.signed.json'))).toBe(true);
++    }else expect(qaPids.every(pid => !physicalPids.includes(pid))).toBe(true);
+     expect(readyNow()).toEqual([]);
+     // Restart/replay with the identical invocation must never start a third worker.
+     expect(lastDispatch).not.toBeNull();

@@ -1,0 +1,11 @@
+SCHEDULER=Running
+RufloM2QaRunner start-request=OK
+RufloM2QaSigner start-request=OK
+RufloM2QaRunner state=Ready lastResult=267011 lastRun=11/30/1999 00:00:00
+RufloM2QaSigner state=Ready lastResult=267011 lastRun=11/30/1999 00:00:00
+TASK_EVENT=110 Планировщик задач запустил экземпляр "{d94816a1-e42b-4ea9-b174-09b557366474}" задачи "\RufloM2QaSigner" для пользователя "RufloM2QaSigner".
+TASK_EVENT=101 Планировщику задач не удается запустить задачу "\RufloM2QASigner" для пользователя "DESKTOP-A55K2JN\RufloM2QaSigner". Дополнительные сведения: значение ошибки: 2147943785.
+TASK_EVENT=104 Планировщику задач не удалось войти в "\RufloM2QASigner". Сбой возник в "LogonUserExEx". Действие пользователя: убедитесь, что для задачи указаны верные учетные данные. Дополнительные сведения: значение ошибки: 2147943785.
+TASK_EVENT=110 Планировщик задач запустил экземпляр "{c34ed2b6-e704-42c2-bbfe-dbc5e24ad69f}" задачи "\RufloM2QaRunner" для пользователя "RufloM2QaRunner".
+TASK_EVENT=101 Планировщику задач не удается запустить задачу "\RufloM2QARunner" для пользователя "DESKTOP-A55K2JN\RufloM2QaRunner". Дополнительные сведения: значение ошибки: 2147943785.
+TASK_EVENT=104 Планировщику задач не удалось войти в "\RufloM2QARunner". Сбой возник в "LogonUserExEx". Действие пользователя: убедитесь, что для задачи указаны верные учетные данные. Дополнительные сведения: значение ошибки: 2147943785.
