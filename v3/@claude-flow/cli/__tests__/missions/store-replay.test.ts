@@ -78,9 +78,6 @@ describe('mission store', () => {
   it('survives SIGKILL of a writer mid-stream: state reconstructs and the next writer continues', async () => {
     const child = spawn(process.execPath, ['--import', pathToFileURL(resolve(__dirname, 'source-workspace-hooks.mjs')).href, '--import', 'tsx', resolve(__dirname, 'kill-writer.ts'), root], {
       cwd: resolve(__dirname, '../..'), stdio: ['ignore', 'pipe', 'pipe'],
-      // Child tsx is outside Vitest's source alias resolver. Reuse the local
-      // workspace sources instead of requiring unpublished package dist files.
-      env: { ...process.env, TSX_TSCONFIG_PATH: resolve(__dirname, 'tsconfig.kill-writer.json') },
     });
     let missionId = '';
     let stderr = '';
