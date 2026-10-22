@@ -11,7 +11,7 @@ import { createRequestedPinnedNativeQaReview } from '../../src/missions/native-q
 import { STOCK_OUTCOME_SCHEMA } from '../../src/missions/execution-quality.js';
 
 const sha = (value:string|Buffer) => 'sha256:'+createHash('sha256').update(value).digest('hex');
-const root='D:/Users/NIKITA/Documents/DEV/ruflo-native-m2-qa-canary';
+const root=process.env.RUFLO_M2_QA_CANARY_ROOT || 'D:/Users/NIKITA/Documents/DEV/ruflo-native-m2-qa-canary';
 const qa='C:/ProgramData/Ruflo/M2QA';
 
 describe('installed Windows QA service against original Native Mission authority',()=>{
